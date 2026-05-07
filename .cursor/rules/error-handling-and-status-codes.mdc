@@ -1,0 +1,28 @@
+---
+description: Error handling, status codes, and logging conventions
+alwaysApply: true
+---
+
+# Errors + Status Codes
+
+- Never swallow errors. Always either **handle** or **throw**.
+- Centralize error responses in one Express error middleware.
+- Prefer typed/custom errors (e.g., `ValidationError`, `NotFoundError`).
+
+## Status code guidelines
+
+- `200` OK (read/update)
+- `201` Created (create)
+- `204` No Content (delete)
+- `400` Validation/Bad input
+- `401` Unauthenticated
+- `403` Forbidden
+- `404` Not Found
+- `409` Conflict (unique constraints/state conflicts)
+- `429` Rate limited
+- `500` Unexpected server error (do not leak internals)
+
+## Logging
+
+- Log with **context** (requestId, userId, route, method).
+- Do not log secrets, tokens, passwords, raw card data.

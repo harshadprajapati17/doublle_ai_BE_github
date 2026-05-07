@@ -1,0 +1,25 @@
+---
+description: Node.js + Express core conventions (always apply)
+alwaysApply: true
+---
+
+# Node.js + Express Core
+
+- Prefer **ESM** (`import/export`) over CommonJS unless repo already uses CJS.
+- Use **async/await**; do not mix with `.then()` chains.
+- Keep code **modular**: route → controller/handler → service → data-access.
+- Avoid large files; split by responsibility (routes/handlers/services/validators).
+- Use **configuration via env**; never hardcode secrets/URLs.
+
+## Express conventions
+
+- Every request handler must be **async** and wrapped in a central error flow.
+- Prefer `req.params`, `req.query`, `req.body` with **explicit validation**.
+- Return consistent JSON:
+  - Success: `{ data, meta? }`
+  - Error: `{ error: { code, message, details? } }`
+
+## Dependencies
+
+- Prefer minimal dependencies; add one only if it removes significant custom code.
+- Use built-in Node features where reasonable (e.g., `node:crypto`, `node:fs/promises`).

@@ -1,0 +1,23 @@
+---
+description: Express routing, layering, and project structure
+alwaysApply: true
+---
+
+# Routing + Structure
+
+## Structure (preferred)
+
+- `src/app.(js|ts)`: app wiring (middleware/routes)
+- `src/server.(js|ts)`: listen/startup only
+- `src/routes/`: route definitions only
+- `src/handlers/`: HTTP-specific logic (req/res), no DB calls directly
+- `src/services/`: business logic
+- `src/data/`: repositories/queries
+- `src/middlewares/`: auth, validation, error handling
+
+## Route rules
+
+- Routes should be **thin**: map method+path to a handler.
+- Handlers should not know storage details; call a service.
+- Use a **router per resource** (e.g., `users.routes`).
+- Name handlers as `createX`, `getX`, `listX`, `updateX`, `deleteX`.

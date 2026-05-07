@@ -1,0 +1,21 @@
+---
+description: Request validation and stable API contracts
+alwaysApply: true
+---
+
+# Validation + API Contracts
+
+- Validate `params`, `query`, and `body` at the boundary (middleware or handler top).
+- Reject unknown fields for write endpoints unless explicitly allowed.
+- Coerce types explicitly (e.g., `limit` to number) and enforce min/max.
+
+## API response consistency
+
+- Always return JSON with a predictable shape.
+- Use stable error codes (string enums) that clients can key off.
+- Do not change response fields without updating callers and tests.
+
+## Pagination (when listing)
+
+- Prefer cursor pagination for large collections; otherwise offset/limit with caps.
+- Include pagination info in `meta` (e.g., `{ meta: { nextCursor } }`).
