@@ -4,6 +4,9 @@ const morgan = require("morgan");
 
 const healthRoutes = require("./routes/health");
 const paymentRoutes = require("./routes/payment");
+const adminProgramsRoutes = require("./routes/admin/programs");
+const { notFoundHandler } = require("./middlewares/notFound");
+const { errorHandler } = require("./middlewares/errorHandler");
 
 const app = express();
 
@@ -15,6 +18,10 @@ if (process.env.REQUEST_LOGGING === "1") {
 
 app.use("/health", healthRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/v1/admin/programs", adminProgramsRoutes);
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 module.exports = { app };
 

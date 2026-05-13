@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum ProgramStatus {
+  DRAFT
+  ACTIVE
+  DISABLED
+}
+
+enum AttributionRule {
+  FIRST_TOUCH
+  FIRST_TOUCH_CODE_OVERRIDE
+  LAST_TOUCH
+}
+
+enum RefereeBenefitType {
+  NONE
+  TRIAL_EXTENSION
+  CREDIT
+}
+
+enum CapBehavior {
+  ROLL_FORWARD
+  HARD_STOP
+}
+
+model Program {
+  id                        String             @id @default(uuid()) @db.Uuid
+  name                      String             @db.VarChar(255)
+  status                    ProgramStatus      @default(DRAFT)
+  rewardPct                 Decimal            @map("reward_pct") @db.Decimal(5, 2)
+  rewardDurationMonths      Int                @map("reward_duration_months")
+  cookieDays                Int                @map("cookie_days")
+  attributionRule           AttributionRule    @map("attribution_rule")
+  refereeBenefitType        RefereeBenefitType @map("referee_benefit_type")
+  refereeBenefitValue       Decimal?           @map("referee_benefit_value") @db.Decimal(12, 2)
+  refereeBenefitTrialDays   Int?               @map("referee_benefit_trial_days")
+  holdPeriodDays            Int                @map("hold_period_days")
+  monthlyCap                Decimal?           @map("monthly_cap") @db.Decimal(12, 2)
+  lifetimeCap               Decimal?           @map("lifetime_cap") @db.Decimal(12, 2)
+  capBehavior               CapBehavior        @map("cap_behavior")
+  refereeMinSpendAmount     Decimal?           @map("referee_min_spend_amount") @db.Decimal(12, 2)
+  refereeMinSpendWindowDays Int?               @map("referee_min_spend_window_days")
+  currency                  String             @default("USD") @db.VarChar(3)
+  termsVersion              String             @map("terms_version") @db.VarChar(64)
+  currentVersion            Int                @default(1) @map("current_version")
+  createdAt                 DateTime           @default(now()) @map("created_at")
+  updatedAt                 DateTime           @updatedAt @map("updated_at")
+  createdByAdminId          String?            @map("created_by_admin_id") @db.VarChar(255)
+  disabledAt                DateTime?          @map("disabled_at")
+
+  versions ProgramVersion[]
+
+  @@index([status])
+  @@index([name])
+  @@map("programs")
+}
+
+model ProgramVersion {
+  id                 String   @id @default(uuid()) @db.Uuid
+  programId          String   @map("program_id") @db.Uuid
+  version            Int
+  payload            Json
+  changedByAdminId   String   @map("changed_by_admin_id") @db.VarChar(255)
+  changeReason       String?  @map("change_reason") @db.Text
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([programId, version])
+  @@index([programId])
+  @@map("program_versions")
+}
+
+model AdminAuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String   @map("actor_id") @db.VarChar(255)
+  action     String   @db.VarChar(128)
+  targetType String   @map("target_type") @db.VarChar(64)
+  targetId   String   @map("target_id") @db.VarChar(64)
+  payload    Json
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([targetType, targetId])
+  @@map("admin_audit_logs")
+}
