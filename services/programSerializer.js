@@ -11,7 +11,7 @@ export function decimalToString(d) {
 }
 
 /**
- * @param {import('@prisma/client').Program} row
+ * @param {import('../generated/prisma/client').Program} row
  */
 function programRowToJson(row) {
   return {
@@ -42,7 +42,7 @@ function programRowToJson(row) {
 }
 
 /**
- * @param {import('@prisma/client').Program & { versions?: import('@prisma/client').ProgramVersion[] }} row
+ * @param {import('../generated/prisma/client').Program & { versions?: import('../generated/prisma/client').ProgramVersion[] }} row
  * @param {{ includeVersions?: boolean }} [opts]
  */
 export function programToDto(row, { includeVersions } = {}) {
@@ -62,7 +62,7 @@ export function programToDto(row, { includeVersions } = {}) {
 }
 
 /**
- * @param {import('@prisma/client').Program} row
+ * @param {import('../generated/prisma/client').Program} row
  */
 export function programSnapshotPayload(row) {
   return programRowToJson(row);

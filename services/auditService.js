@@ -1,13 +1,13 @@
 import { create as createAuditRow } from "../data/auditLogRepo.js";
 
 /**
- * @param {import('@prisma/client').Prisma.TransactionClient} tx
+ * @param {import('../generated/prisma/client').Prisma.TransactionClient} tx
  * @param {{
  *   actorId: string;
  *   action: string;
  *   targetType: string;
  *   targetId: string;
- *   payload: import('@prisma/client').Prisma.InputJsonValue;
+ *   payload: import('../generated/prisma/client').Prisma.InputJsonValue;
  * }} entry
  */
 export async function writeAuditLog(tx, entry) {

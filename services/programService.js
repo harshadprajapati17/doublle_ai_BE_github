@@ -1,5 +1,4 @@
-import { Prisma } from "@prisma/client";
-import { prisma } from "../data/prismaClient.js";
+import { prisma, Decimal } from "../data/prismaClient.js";
 import * as programRepo from "../data/programRepo.js";
 import * as programVersionRepo from "../data/programVersionRepo.js";
 import { writeAuditLog } from "./auditService.js";
@@ -15,22 +14,22 @@ function toCreateData(body, actorId) {
   return {
     name: body.name,
     status: "DRAFT",
-    rewardPct: new Prisma.Decimal(String(body.rewardPct)),
+    rewardPct: new Decimal(String(body.rewardPct)),
     rewardDurationMonths: body.rewardDurationMonths,
     cookieDays: body.cookieDays,
     attributionRule: body.attributionRule,
     refereeBenefitType: body.refereeBenefitType,
     refereeBenefitValue:
-      body.refereeBenefitValue == null ? null : new Prisma.Decimal(String(body.refereeBenefitValue)),
+      body.refereeBenefitValue == null ? null : new Decimal(String(body.refereeBenefitValue)),
     refereeBenefitTrialDays: body.refereeBenefitTrialDays ?? null,
     holdPeriodDays: body.holdPeriodDays,
-    monthlyCap: body.monthlyCap == null ? null : new Prisma.Decimal(String(body.monthlyCap)),
-    lifetimeCap: body.lifetimeCap == null ? null : new Prisma.Decimal(String(body.lifetimeCap)),
+    monthlyCap: body.monthlyCap == null ? null : new Decimal(String(body.monthlyCap)),
+    lifetimeCap: body.lifetimeCap == null ? null : new Decimal(String(body.lifetimeCap)),
     capBehavior: body.capBehavior,
     refereeMinSpendAmount:
       body.refereeMinSpendAmount == null
         ? null
-        : new Prisma.Decimal(String(body.refereeMinSpendAmount)),
+        : new Decimal(String(body.refereeMinSpendAmount)),
     refereeMinSpendWindowDays: body.refereeMinSpendWindowDays ?? null,
     currency: body.currency,
     termsVersion: body.termsVersion,
@@ -45,31 +44,31 @@ function toUpdateData(body) {
   /** @type {Record<string, unknown>} */
   const data = {};
   if (body.name !== undefined) data.name = body.name;
-  if (body.rewardPct !== undefined) data.rewardPct = new Prisma.Decimal(String(body.rewardPct));
+  if (body.rewardPct !== undefined) data.rewardPct = new Decimal(String(body.rewardPct));
   if (body.rewardDurationMonths !== undefined) data.rewardDurationMonths = body.rewardDurationMonths;
   if (body.cookieDays !== undefined) data.cookieDays = body.cookieDays;
   if (body.attributionRule !== undefined) data.attributionRule = body.attributionRule;
   if (body.refereeBenefitType !== undefined) data.refereeBenefitType = body.refereeBenefitType;
   if (body.refereeBenefitValue !== undefined) {
     data.refereeBenefitValue =
-      body.refereeBenefitValue == null ? null : new Prisma.Decimal(String(body.refereeBenefitValue));
+      body.refereeBenefitValue == null ? null : new Decimal(String(body.refereeBenefitValue));
   }
   if (body.refereeBenefitTrialDays !== undefined) {
     data.refereeBenefitTrialDays = body.refereeBenefitTrialDays;
   }
   if (body.holdPeriodDays !== undefined) data.holdPeriodDays = body.holdPeriodDays;
   if (body.monthlyCap !== undefined) {
-    data.monthlyCap = body.monthlyCap == null ? null : new Prisma.Decimal(String(body.monthlyCap));
+    data.monthlyCap = body.monthlyCap == null ? null : new Decimal(String(body.monthlyCap));
   }
   if (body.lifetimeCap !== undefined) {
-    data.lifetimeCap = body.lifetimeCap == null ? null : new Prisma.Decimal(String(body.lifetimeCap));
+    data.lifetimeCap = body.lifetimeCap == null ? null : new Decimal(String(body.lifetimeCap));
   }
   if (body.capBehavior !== undefined) data.capBehavior = body.capBehavior;
   if (body.refereeMinSpendAmount !== undefined) {
     data.refereeMinSpendAmount =
       body.refereeMinSpendAmount == null
         ? null
-        : new Prisma.Decimal(String(body.refereeMinSpendAmount));
+        : new Decimal(String(body.refereeMinSpendAmount));
   }
   if (body.refereeMinSpendWindowDays !== undefined) {
     data.refereeMinSpendWindowDays = body.refereeMinSpendWindowDays;
@@ -80,9 +79,9 @@ function toUpdateData(body) {
 }
 
 /**
- * @param {import('@prisma/client').Prisma.TransactionClient} tx
+ * @param {import('../generated/prisma/client').Prisma.TransactionClient} tx
  * @param {string} programId
- * @param {import('@prisma/client').Prisma.ProgramUpdateInput} patch
+ * @param {import('../generated/prisma/client').Prisma.ProgramUpdateInput} patch
  * @param {string} actorId
  * @param {string | null} changeReason
  * @param {string} auditAction
@@ -148,7 +147,7 @@ export async function createProgram(actorId, body) {
  */
 export async function listPrograms(query) {
   const limit = query.limit;
-  const where = /** @type {import('@prisma/client').Prisma.ProgramWhereInput} */ ({});
+  const where = /** @type {import('../generated/prisma/client').Prisma.ProgramWhereInput} */ ({});
 
   if (query.status) {
     where.status = query.status;

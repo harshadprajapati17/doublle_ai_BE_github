@@ -1,5 +1,14 @@
 import { jest } from "@jest/globals";
 
+class Decimal {
+  constructor(value) {
+    this.value = String(value);
+  }
+  toString() {
+    return this.value;
+  }
+}
+
 const prisma = {
   program: {
     findMany: jest.fn().mockResolvedValue([]),
@@ -18,4 +27,4 @@ const prisma = {
 
 prisma.$transaction.mockImplementation(async (fn) => fn(prisma));
 
-export { prisma };
+export { prisma, Decimal };

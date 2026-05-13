@@ -1,5 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "../generated/prisma/client.ts";
 import { PrismaPg } from "@prisma/adapter-pg";
+
+export const Decimal = Prisma.Decimal;
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
