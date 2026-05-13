@@ -2,7 +2,7 @@
  * @param {unknown} d
  * @returns {string | null}
  */
-function decimalToString(d) {
+export function decimalToString(d) {
   if (d === null || d === undefined) return null;
   if (typeof d === "object" && d !== null && typeof d.toString === "function") {
     return d.toString();
@@ -45,7 +45,7 @@ function programRowToJson(row) {
  * @param {import('@prisma/client').Program & { versions?: import('@prisma/client').ProgramVersion[] }} row
  * @param {{ includeVersions?: boolean }} [opts]
  */
-function programToDto(row, { includeVersions } = {}) {
+export function programToDto(row, { includeVersions } = {}) {
   const base = programRowToJson(row);
   if (includeVersions && row.versions) {
     base.versions = row.versions.map((v) => ({
@@ -64,12 +64,6 @@ function programToDto(row, { includeVersions } = {}) {
 /**
  * @param {import('@prisma/client').Program} row
  */
-function programSnapshotPayload(row) {
+export function programSnapshotPayload(row) {
   return programRowToJson(row);
 }
-
-module.exports = {
-  programToDto,
-  programSnapshotPayload,
-  decimalToString,
-};

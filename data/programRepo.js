@@ -2,7 +2,7 @@
  * @param {import('@prisma/client').Prisma.TransactionClient | import('@prisma/client').PrismaClient} client
  * @param {import('@prisma/client').Prisma.ProgramCreateInput} data
  */
-async function create(client, data) {
+export async function create(client, data) {
   return client.program.create({ data });
 }
 
@@ -11,7 +11,7 @@ async function create(client, data) {
  * @param {string} id
  * @param {import('@prisma/client').Prisma.ProgramInclude | undefined} include
  */
-async function findUnique(client, id, include) {
+export async function findUnique(client, id, include) {
   return client.program.findUnique({ where: { id }, include });
 }
 
@@ -19,7 +19,7 @@ async function findUnique(client, id, include) {
  * @param {import('@prisma/client').Prisma.TransactionClient | import('@prisma/client').PrismaClient} client
  * @param {import('@prisma/client').Prisma.ProgramFindManyArgs} args
  */
-async function findMany(client, args) {
+export async function findMany(client, args) {
   return client.program.findMany(args);
 }
 
@@ -28,8 +28,6 @@ async function findMany(client, args) {
  * @param {string} id
  * @param {import('@prisma/client').Prisma.ProgramUpdateInput} data
  */
-async function update(client, id, data) {
+export async function update(client, id, data) {
   return client.program.update({ where: { id }, data });
 }
-
-module.exports = { create, findUnique, findMany, update };

@@ -1,23 +1,23 @@
-const { Router } = require("express");
-const { requireAdmin } = require("../../middlewares/requireAdmin");
-const { validateRequest } = require("../../middlewares/validateRequest");
-const { asyncHandler } = require("../../middlewares/asyncHandler");
-const {
+import { Router } from "express";
+import { requireAdmin } from "../../middlewares/requireAdmin.js";
+import { validateRequest } from "../../middlewares/validateRequest.js";
+import { asyncHandler } from "../../middlewares/asyncHandler.js";
+import {
   idParamSchema,
   listProgramsQuerySchema,
   createProgramSchema,
   updateProgramSchema,
   getProgramQuerySchema,
   activateProgramQuerySchema,
-} = require("../../validators/programSchemas");
-const {
+} from "../../validators/programSchemas.js";
+import {
   postProgram,
   getPrograms,
   getProgram,
   patchProgram,
   postActivateProgram,
   deleteProgram,
-} = require("../../controllers/admin/programController");
+} from "../../controllers/admin/programController.js";
 
 const router = Router();
 
@@ -55,4 +55,4 @@ router.post(
 
 router.delete("/:id", validateRequest({ params: idParamSchema }), asyncHandler(deleteProgram));
 
-module.exports = router;
+export default router;

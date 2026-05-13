@@ -1,10 +1,10 @@
-const jwt = require("jsonwebtoken");
-const { UnauthorizedError, ForbiddenError } = require("../errors");
+import jwt from "jsonwebtoken";
+import { UnauthorizedError, ForbiddenError } from "../errors/index.js";
 
 /**
  * Verifies HS256 Bearer JWT. Requires payload.role === "admin" and sub (actor id).
  */
-function requireAdmin(req, res, next) {
+export function requireAdmin(req, res, next) {
   const secret = process.env.ADMIN_JWT_SECRET;
   if (!secret || secret.trim() === "") {
     return next(
@@ -51,5 +51,3 @@ function requireAdmin(req, res, next) {
     return next(err);
   }
 }
-
-module.exports = { requireAdmin };

@@ -1,4 +1,4 @@
-"use strict";
+import { jest } from "@jest/globals";
 
 const prisma = {
   program: {
@@ -18,4 +18,4 @@ const prisma = {
 
 prisma.$transaction.mockImplementation(async (fn) => fn(prisma));
 
-module.exports = { prisma };
+export { prisma };

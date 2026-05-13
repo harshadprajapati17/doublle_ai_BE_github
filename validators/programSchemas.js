@@ -1,24 +1,24 @@
-const { z } = require("zod");
+import { z } from "zod";
 
-const programStatusSchema = z.enum(["DRAFT", "ACTIVE", "DISABLED"]);
-const attributionRuleSchema = z.enum([
+export const programStatusSchema = z.enum(["DRAFT", "ACTIVE", "DISABLED"]);
+export const attributionRuleSchema = z.enum([
   "FIRST_TOUCH",
   "FIRST_TOUCH_CODE_OVERRIDE",
   "LAST_TOUCH",
 ]);
-const refereeBenefitTypeSchema = z.enum(["NONE", "TRIAL_EXTENSION", "CREDIT"]);
-const capBehaviorSchema = z.enum(["ROLL_FORWARD", "HARD_STOP"]);
+export const refereeBenefitTypeSchema = z.enum(["NONE", "TRIAL_EXTENSION", "CREDIT"]);
+export const capBehaviorSchema = z.enum(["ROLL_FORWARD", "HARD_STOP"]);
 
 const currencySchema = z
   .string()
   .length(3)
   .transform((s) => s.toUpperCase());
 
-const idParamSchema = z.object({
+export const idParamSchema = z.object({
   id: z.string().uuid(),
 });
 
-const listProgramsQuerySchema = z
+export const listProgramsQuerySchema = z
   .object({
     status: programStatusSchema.optional(),
     q: z.string().trim().min(1).max(200).optional(),
@@ -27,7 +27,7 @@ const listProgramsQuerySchema = z
   })
   .strict();
 
-const createProgramSchema = z
+export const createProgramSchema = z
   .object({
     name: z.string().trim().min(1).max(255),
     rewardPct: z.coerce.number().min(0).max(100),
@@ -64,7 +64,7 @@ const createProgramSchema = z
     }
   });
 
-const updateProgramSchema = z
+export const updateProgramSchema = z
   .object({
     name: z.string().trim().min(1).max(255).optional(),
     rewardPct: z.coerce.number().min(0).max(100).optional(),
@@ -94,13 +94,13 @@ const updateProgramSchema = z
     }
   });
 
-const getProgramQuerySchema = z
+export const getProgramQuerySchema = z
   .object({
     include: z.enum(["versions"]).optional(),
   })
   .strict();
 
-const activateProgramQuerySchema = z
+export const activateProgramQuerySchema = z
   .object({
     force: z
       .union([z.boolean(), z.string()])
@@ -108,16 +108,3 @@ const activateProgramQuerySchema = z
       .transform((v) => v === true || v === "true"),
   })
   .strict();
-
-module.exports = {
-  programStatusSchema,
-  attributionRuleSchema,
-  refereeBenefitTypeSchema,
-  capBehaviorSchema,
-  idParamSchema,
-  listProgramsQuerySchema,
-  createProgramSchema,
-  updateProgramSchema,
-  getProgramQuerySchema,
-  activateProgramQuerySchema,
-};

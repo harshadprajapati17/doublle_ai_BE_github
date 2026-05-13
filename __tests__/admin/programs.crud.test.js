@@ -1,11 +1,13 @@
-/**
- * @jest-environment node
- */
+import { jest } from "@jest/globals";
+import jwt from "jsonwebtoken";
 
-const jwt = require("jsonwebtoken");
-const request = require("supertest");
-const { app } = require("../../app");
-const { prisma } = require("../../data/prismaClient");
+jest.unstable_mockModule("../../data/prismaClient.js", () =>
+  import("../../data/__mocks__/prismaClient.js")
+);
+
+const request = (await import("supertest")).default;
+const { app } = await import("../../app.js");
+const { prisma } = await import("../../data/prismaClient.js");
 
 const IDS = {
   list404: "5a1b2c61-06da-42ab-8ec8-8199610fdd95",

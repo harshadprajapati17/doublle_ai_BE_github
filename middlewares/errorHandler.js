@@ -1,12 +1,12 @@
-const { AppError, ValidationError } = require("../errors");
-const { ZodError } = require("zod");
+import { ZodError } from "zod";
+import { AppError, ValidationError } from "../errors/index.js";
 
 /**
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-function notFoundHandler(req, res, next) {
+export function notFoundHandler(req, res, next) {
   res.status(404).json({
     error: {
       code: "NOT_FOUND",
@@ -22,7 +22,7 @@ function notFoundHandler(req, res, next) {
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} _next
  */
-function errorHandler(err, req, res, _next) {
+export function errorHandler(err, req, res, _next) {
   if (err instanceof ZodError) {
     return res.status(400).json({
       error: {
@@ -60,5 +60,3 @@ function errorHandler(err, req, res, _next) {
     },
   });
 }
-
-module.exports = { notFoundHandler, errorHandler };

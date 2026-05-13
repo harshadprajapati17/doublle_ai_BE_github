@@ -1,4 +1,6 @@
-jest.mock("../config/razorpay", () => ({
+import { jest } from "@jest/globals";
+
+jest.unstable_mockModule("../config/razorpay.js", () => ({
   razorpay: {
     orders: {
       create: jest.fn(),
@@ -6,10 +8,9 @@ jest.mock("../config/razorpay", () => ({
   },
 }));
 
-const request = require("supertest");
-const { razorpay } = require("../config/razorpay");
-
-const { app } = require("../app");
+const request = (await import("supertest")).default;
+const { razorpay } = await import("../config/razorpay.js");
+const { app } = await import("../app.js");
 
 describe("POST /api/payment/create-order", () => {
   beforeEach(() => {
@@ -147,4 +148,3 @@ describe("POST /api/payment/create-order", () => {
     expect(res.body).toHaveProperty("error.details.providerCode", "BAD_REQUEST_ERROR");
   });
 });
-

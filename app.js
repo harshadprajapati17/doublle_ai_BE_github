@@ -1,14 +1,14 @@
-const express = require("express");
-const cors = require("cors");
-const morgan = require("morgan");
+import express from "express";
+import cors from "cors";
+import morgan from "morgan";
 
-const healthRoutes = require("./routes/health");
-const paymentRoutes = require("./routes/payment");
-const adminProgramsRoutes = require("./routes/admin/programs");
-const { notFoundHandler } = require("./middlewares/notFound");
-const { errorHandler } = require("./middlewares/errorHandler");
+import healthRoutes from "./routes/health.js";
+import paymentRoutes from "./routes/payment.js";
+import adminProgramsRoutes from "./routes/admin/programs.js";
+import { notFoundHandler } from "./middlewares/notFound.js";
+import { errorHandler } from "./middlewares/errorHandler.js";
 
-const app = express();
+export const app = express();
 
 app.use(cors());
 app.use(express.json());
@@ -22,6 +22,3 @@ app.use("/api/v1/admin/programs", adminProgramsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
-
-module.exports = { app };
-

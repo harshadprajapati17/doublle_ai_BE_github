@@ -1,15 +1,11 @@
-const { Prisma } = require("@prisma/client");
-const { prisma } = require("../data/prismaClient");
-const programRepo = require("../data/programRepo");
-const programVersionRepo = require("../data/programVersionRepo");
-const { writeAuditLog } = require("./auditService");
-const { programSnapshotPayload, programToDto } = require("./programSerializer");
-const { encodeProgramListCursor, decodeProgramListCursor } = require("../utils/programCursor");
-const {
-  ValidationError,
-  NotFoundError,
-  ConflictError,
-} = require("../errors");
+import { Prisma } from "@prisma/client";
+import { prisma } from "../data/prismaClient.js";
+import * as programRepo from "../data/programRepo.js";
+import * as programVersionRepo from "../data/programVersionRepo.js";
+import { writeAuditLog } from "./auditService.js";
+import { programSnapshotPayload, programToDto } from "./programSerializer.js";
+import { encodeProgramListCursor, decodeProgramListCursor } from "../utils/programCursor.js";
+import { ValidationError, NotFoundError, ConflictError } from "../errors/index.js";
 
 /**
  * @param {Record<string, unknown>} body
@@ -121,7 +117,7 @@ async function bumpProgramVersion(tx, programId, patch, actorId, changeReason, a
   return updated;
 }
 
-async function createProgram(actorId, body) {
+export async function createProgram(actorId, body) {
   const data = toCreateData(body, actorId);
   const created = await prisma.$transaction(async (tx) => {
     const prog = await programRepo.create(tx, {
@@ -150,7 +146,7 @@ async function createProgram(actorId, body) {
 /**
  * @param {object} query
  */
-async function listPrograms(query) {
+export async function listPrograms(query) {
   const limit = query.limit;
   const where = /** @type {import('@prisma/client').Prisma.ProgramWhereInput} */ ({});
 
@@ -199,7 +195,7 @@ async function listPrograms(query) {
  * @param {string} id
  * @param {{ include?: 'versions' }} query
  */
-async function getProgramById(id, query) {
+export async function getProgramById(id, query) {
   const row = await programRepo.findUnique(
     prisma,
     id,
@@ -211,7 +207,7 @@ async function getProgramById(id, query) {
   return { data: programToDto(row, { includeVersions: query.include === "versions" }) };
 }
 
-async function updateProgram(actorId, id, body) {
+export async function updateProgram(actorId, id, body) {
   const patch = toUpdateData(body);
   const updated = await prisma.$transaction(async (tx) => {
     const existing = await programRepo.findUnique(tx, id, undefined);
@@ -234,7 +230,7 @@ async function updateProgram(actorId, id, body) {
  * @param {string} id
  * @param {{ force: boolean }} query
  */
-async function activateProgram(actorId, id, query) {
+export async function activateProgram(actorId, id, query) {
   const result = await prisma.$transaction(async (tx) => {
     const self = await programRepo.findUnique(tx, id, undefined);
     if (!self) throw new NotFoundError("Program not found.");
@@ -280,7 +276,7 @@ async function activateProgram(actorId, id, query) {
   return { data: programToDto(result.program), meta: result.noOp ? { noOp: true } : undefined };
 }
 
-async function disableProgram(actorId, id) {
+export async function disableProgram(actorId, id) {
   const result = await prisma.$transaction(async (tx) => {
     const existing = await programRepo.findUnique(tx, id, undefined);
     if (!existing) throw new NotFoundError("Program not found.");
@@ -300,12 +296,3 @@ async function disableProgram(actorId, id) {
   });
   return result;
 }
-
-module.exports = {
-  createProgram,
-  listPrograms,
-  getProgramById,
-  updateProgram,
-  activateProgram,
-  disableProgram,
-};
