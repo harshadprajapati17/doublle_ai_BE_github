@@ -38,15 +38,11 @@ function fakeProgram(overrides = {}) {
     rewardDurationMonths: 12,
     cookieDays: 30,
     attributionRule: "FIRST_TOUCH_CODE_OVERRIDE",
-    refereeBenefitType: "NONE",
     refereeBenefitValue: null,
-    refereeBenefitTrialDays: null,
     holdPeriodDays: 30,
     monthlyCap: null,
     lifetimeCap: null,
     capBehavior: "ROLL_FORWARD",
-    refereeMinSpendAmount: null,
-    refereeMinSpendWindowDays: null,
     currency: "USD",
     termsVersion: "v1",
     currentVersion: 1,
@@ -60,11 +56,11 @@ function fakeProgram(overrides = {}) {
 
 const sampleCreateBody = {
   name: "Standard",
-  rewardPct: 5,
-  rewardDurationMonths: 12,
+  referrerRewardPct: 5,
+  referrerRewardDurationMonths: 12,
   cookieDays: 30,
   attributionRule: "FIRST_TOUCH_CODE_OVERRIDE",
-  refereeBenefitType: "NONE",
+  refereeBenefitValue: null,
   holdPeriodDays: 30,
   capBehavior: "ROLL_FORWARD",
   termsVersion: "v1",
@@ -133,6 +129,16 @@ describe("POST /api/v1/admin/programs", () => {
       .post("/api/v1/admin/programs")
       .set("Authorization", `Bearer ${adminToken()}`)
       .send({ ...sampleCreateBody, extraField: 1 });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  test("returns 400 when refereeBenefitValue is omitted", async () => {
+    const { refereeBenefitValue: _omit, ...withoutBenefit } = sampleCreateBody;
+    const res = await request(app)
+      .post("/api/v1/admin/programs")
+      .set("Authorization", `Bearer ${adminToken()}`)
+      .send(withoutBenefit);
     expect(res.statusCode).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
