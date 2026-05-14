@@ -1,9 +1,7 @@
 /**
- * @param {import('@prisma/client').Prisma.TransactionClient | import('@prisma/client').PrismaClient} client
- * @param {import('@prisma/client').Prisma.ProgramVersionCreateInput} data
+ * @param {import('../generated/prisma/client').Prisma.TransactionClient | import('../generated/prisma/client').PrismaClient} client
+ * @param {import('../generated/prisma/client').Prisma.ProgramVersionCreateInput} data
  */
-async function create(client, data) {
+export async function create(client, data) {
   return client.programVersion.create({ data });
 }
-
-module.exports = { create };

@@ -1,5 +1,5 @@
-const { razorpay } = require("../config/razorpay");
-const crypto = require("node:crypto");
+import crypto from "node:crypto";
+import { razorpay } from "../config/razorpay.js";
 
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -256,7 +256,7 @@ function verifyRazorpaySignature({
   }
 }
 
-async function createOrder(req, res) {
+export async function createOrder(req, res) {
   try {
     const validated = validateCreateOrderBody(req.body);
     if (!validated.ok) {
@@ -330,7 +330,7 @@ async function createOrder(req, res) {
   }
 }
 
-async function verifyPayment(req, res) {
+export async function verifyPayment(req, res) {
   try {
     const validated = validateVerifyPaymentBody(req.body);
     if (!validated.ok) {
@@ -371,6 +371,3 @@ async function verifyPayment(req, res) {
     });
   }
 }
-
-module.exports = { createOrder, verifyPayment };
-

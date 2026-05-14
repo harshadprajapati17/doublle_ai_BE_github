@@ -1,4 +1,4 @@
-class AppError extends Error {
+export class AppError extends Error {
   /**
    * @param {string} code
    * @param {string} message
@@ -14,7 +14,7 @@ class AppError extends Error {
   }
 }
 
-class ValidationError extends AppError {
+export class ValidationError extends AppError {
   /** @param {string} message @param {unknown} [details] */
   constructor(message, details) {
     super("VALIDATION_ERROR", message, 400, details);
@@ -22,39 +22,45 @@ class ValidationError extends AppError {
   }
 }
 
-class UnauthorizedError extends AppError {
+export class UnauthorizedError extends AppError {
   constructor(message = "Authentication required.") {
     super("UNAUTHENTICATED", message, 401);
     this.name = "UnauthorizedError";
   }
 }
 
-class ForbiddenError extends AppError {
+export class ForbiddenError extends AppError {
   constructor(message = "Forbidden.") {
     super("FORBIDDEN", message, 403);
     this.name = "ForbiddenError";
   }
 }
 
-class NotFoundError extends AppError {
+export class NotFoundError extends AppError {
   constructor(message = "Resource not found.") {
     super("NOT_FOUND", message, 404);
     this.name = "NotFoundError";
   }
 }
 
-class ConflictError extends AppError {
+export class ConflictError extends AppError {
   constructor(message, details) {
     super("CONFLICT_ACTIVE_PROGRAM_EXISTS", message, 409, details);
     this.name = "ConflictError";
   }
 }
 
-module.exports = {
-  AppError,
-  ValidationError,
-  UnauthorizedError,
-  ForbiddenError,
-  NotFoundError,
-  ConflictError,
-};
+export class NoActiveReferralProgramError extends AppError {
+  constructor(message = "No active referral program.") {
+    super("NO_ACTIVE_REFERRAL_PROGRAM", message, 404);
+    this.name = "NoActiveReferralProgramError";
+  }
+}
+
+/** Missing or invalid required environment configuration (e.g. public base URL). */
+export class ServiceMisconfiguredError extends AppError {
+  constructor(message) {
+    super("SERVICE_MISCONFIGURED", message, 503);
+    this.name = "ServiceMisconfiguredError";
+  }
+}

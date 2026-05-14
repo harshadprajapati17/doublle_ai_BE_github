@@ -9,11 +9,13 @@ If something here conflicts with the root `README.md`, this doc wins for DB topi
 ## 1. Stack
 
 - **Engine:** Postgres 15+ (hosted on Supabase)
-- **ORM/Client:** Prisma (`@prisma/client`) with generator `prisma-client-js`
+- **ORM/Client:** Prisma 7 (`@prisma/client`) with generator `prisma-client` (Rust-free) and the `@prisma/adapter-pg` driver adapter on top of `pg` (`node-postgres`).
 - **Schema file:** `prisma/schema.prisma`
-- **Migrations:** `prisma/migrations/*` (committed, applied with `prisma migrate deploy`)
+- **Generated client output:** `./generated/prisma/` (gitignored; produced by `prisma generate`, regenerated on `npm install` via `postinstall`).
+- **Prisma config:** `prisma.config.js` (project root) — wires `DIRECT_URL` into `prisma migrate` / `prisma db execute`.
+- **Migrations:** `prisma/migrations/*` (committed, applied with `prisma migrate deploy`).
 - **Migration provider lock:** `prisma/migrations/migration_lock.toml` (`provider = "postgresql"` — do not edit)
-- **Client singleton:** `data/prismaClient.js`
+- **Client singleton:** `data/prismaClient.js` (constructs `PrismaClient` with the `PrismaPg` adapter using `DATABASE_URL` and the pool tuning env vars).
 
 ### Schema overview
 
@@ -33,14 +35,25 @@ Two URLs are required. Both point at the **same** Supabase project but use diffe
 
 | Variable        | Used by                                       | Mode                                  | Notes                                                                       |
 |-----------------|-----------------------------------------------|---------------------------------------|-----------------------------------------------------------------------------|
-| `DATABASE_URL`  | App runtime (Prisma Client queries)           | **Transaction pooler** (PgBouncer)    | Port `6543`. Append `?pgbouncer=true&connection_limit=1` for serverless.    |
-| `DIRECT_URL`    | `prisma migrate` / `prisma db push`           | **Direct** Postgres                   | Port `5432`. Required because migrations issue DDL the pooler can't proxy.  |
+| `DATABASE_URL`  | App runtime (`PrismaPg` adapter via `pg`)     | **Transaction pooler** (PgBouncer)    | Port `6543`. Append `?pgbouncer=true&connection_limit=1` for serverless.    |
+| `DIRECT_URL`    | `prisma migrate` (via `prisma.config.js`)     | **Direct** Postgres                   | Port `5432`. Required because migrations issue DDL the pooler can't proxy.  |
 
 Where to find them in Supabase: **Project → Settings → Database → Connection string**.
 - "Transaction" → `DATABASE_URL`
 - "Direct connection" → `DIRECT_URL`
 
 URL-encode any special chars in the password (`@`, `#`, `:`, `/`, `?`).
+
+### Optional pool tuning
+
+The Prisma client uses `pg`'s connection pool through the driver adapter. Defaults are sensible for dev; tune in production via:
+
+| Variable                          | Default | Maps to                          |
+|-----------------------------------|---------|----------------------------------|
+| `DB_POOL_MAX`                     | `10`    | `pg.Pool { max }`                |
+| `DB_POOL_IDLE_MS`                 | `30000` | `pg.Pool { idleTimeoutMillis }`  |
+| `DB_POOL_CONN_TIMEOUT_MS`         | `5000`  | `pg.Pool { connectionTimeoutMillis }` |
+| `DATABASE_SSL_REJECT_UNAUTHORIZED`| _unset_ | If set to `false`, passes `{ ssl: { rejectUnauthorized: false } }`. Only use for dev/self-signed; Supabase certs are valid out of the box. |
 
 > Never commit real values. Update `.env.example` only when adding/renaming variables.
 

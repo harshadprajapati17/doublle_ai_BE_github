@@ -2,7 +2,7 @@
  * @param {unknown} d
  * @returns {string | null}
  */
-function decimalToString(d) {
+export function decimalToString(d) {
   if (d === null || d === undefined) return null;
   if (typeof d === "object" && d !== null && typeof d.toString === "function") {
     return d.toString();
@@ -11,26 +11,22 @@ function decimalToString(d) {
 }
 
 /**
- * @param {import('@prisma/client').Program} row
+ * @param {import('../generated/prisma/client').Program} row
  */
 function programRowToJson(row) {
   return {
     id: row.id,
     name: row.name,
     status: row.status,
-    rewardPct: decimalToString(row.rewardPct),
-    rewardDurationMonths: row.rewardDurationMonths,
+    referrerRewardPct: decimalToString(row.rewardPct),
+    referrerRewardDurationMonths: row.rewardDurationMonths,
     cookieDays: row.cookieDays,
     attributionRule: row.attributionRule,
-    refereeBenefitType: row.refereeBenefitType,
     refereeBenefitValue: decimalToString(row.refereeBenefitValue),
-    refereeBenefitTrialDays: row.refereeBenefitTrialDays,
     holdPeriodDays: row.holdPeriodDays,
     monthlyCap: decimalToString(row.monthlyCap),
     lifetimeCap: decimalToString(row.lifetimeCap),
     capBehavior: row.capBehavior,
-    refereeMinSpendAmount: decimalToString(row.refereeMinSpendAmount),
-    refereeMinSpendWindowDays: row.refereeMinSpendWindowDays,
     currency: row.currency,
     termsVersion: row.termsVersion,
     currentVersion: row.currentVersion,
@@ -42,10 +38,10 @@ function programRowToJson(row) {
 }
 
 /**
- * @param {import('@prisma/client').Program & { versions?: import('@prisma/client').ProgramVersion[] }} row
+ * @param {import('../generated/prisma/client').Program & { versions?: import('../generated/prisma/client').ProgramVersion[] }} row
  * @param {{ includeVersions?: boolean }} [opts]
  */
-function programToDto(row, { includeVersions } = {}) {
+export function programToDto(row, { includeVersions } = {}) {
   const base = programRowToJson(row);
   if (includeVersions && row.versions) {
     base.versions = row.versions.map((v) => ({
@@ -62,14 +58,8 @@ function programToDto(row, { includeVersions } = {}) {
 }
 
 /**
- * @param {import('@prisma/client').Program} row
+ * @param {import('../generated/prisma/client').Program} row
  */
-function programSnapshotPayload(row) {
+export function programSnapshotPayload(row) {
   return programRowToJson(row);
 }
-
-module.exports = {
-  programToDto,
-  programSnapshotPayload,
-  decimalToString,
-};

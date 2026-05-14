@@ -1,14 +1,15 @@
-/**
- * @jest-environment node
- */
+import { jest } from "@jest/globals";
+import jwt from "jsonwebtoken";
 
-const jwt = require("jsonwebtoken");
+jest.unstable_mockModule("../../data/prismaClient.js", () =>
+  import("../../data/__mocks__/prismaClient.js")
+);
+
+const request = (await import("supertest")).default;
+const { app } = await import("../../app.js");
 
 describe("Admin programs auth", () => {
   test("GET /api/v1/admin/programs returns 401 without Authorization", async () => {
-    jest.resetModules();
-    const request = require("supertest");
-    const { app } = require("../../app");
     const res = await request(app).get("/api/v1/admin/programs");
     expect(res.statusCode).toBe(401);
     expect(res.body).toMatchObject({
@@ -17,9 +18,6 @@ describe("Admin programs auth", () => {
   });
 
   test("GET /api/v1/admin/programs returns 401 for invalid token", async () => {
-    jest.resetModules();
-    const request = require("supertest");
-    const { app } = require("../../app");
     const res = await request(app)
       .get("/api/v1/admin/programs")
       .set("Authorization", "Bearer not-a-jwt");
@@ -28,9 +26,6 @@ describe("Admin programs auth", () => {
   });
 
   test("GET /api/v1/admin/programs returns 401 for expired token", async () => {
-    jest.resetModules();
-    const request = require("supertest");
-    const { app } = require("../../app");
     const token = jwt.sign(
       { sub: "a1", role: "admin" },
       process.env.ADMIN_JWT_SECRET,
@@ -44,9 +39,6 @@ describe("Admin programs auth", () => {
   });
 
   test("GET /api/v1/admin/programs returns 403 when role is not admin", async () => {
-    jest.resetModules();
-    const request = require("supertest");
-    const { app } = require("../../app");
     const token = jwt.sign({ sub: "u1", role: "user" }, process.env.ADMIN_JWT_SECRET, {
       algorithm: "HS256",
     });
@@ -58,13 +50,23 @@ describe("Admin programs auth", () => {
   });
 
   test("GET /api/v1/admin/programs returns 403 when sub missing", async () => {
-    jest.resetModules();
-    const request = require("supertest");
-    const { app } = require("../../app");
     const token = jwt.sign({ role: "admin" }, process.env.ADMIN_JWT_SECRET, { algorithm: "HS256" });
     const res = await request(app)
       .get("/api/v1/admin/programs")
       .set("Authorization", `Bearer ${token}`);
     expect(res.statusCode).toBe(403);
+  });
+
+  test("GET /api/v1/admin/programs accepts JWT signed with ADMIN_JWT_SECRET_2", async () => {
+    const token = jwt.sign(
+      { sub: "admin-demo-2", role: "admin" },
+      process.env.ADMIN_JWT_SECRET_2,
+      { algorithm: "HS256" }
+    );
+    const res = await request(app)
+      .get("/api/v1/admin/programs")
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ data: [], meta: { nextCursor: null } });
   });
 });

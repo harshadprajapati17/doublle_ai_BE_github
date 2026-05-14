@@ -4,22 +4,22 @@ import {
   verifyJwtHs256WithSecrets,
 } from "../utils/verifyJwtHs256WithSecrets.js";
 
-const ADMIN_JWT_ENV_NAMES = ["ADMIN_JWT_SECRET", "ADMIN_JWT_SECRET_2", "ADMIN_JWT_SECRET_3"];
+const USER_JWT_ENV_NAMES = ["USER_JWT_SECRET", "USER_JWT_SECRET_2", "USER_JWT_SECRET_3"];
 
 /**
- * Verifies HS256 Bearer JWT. Requires payload.role === "admin" and sub (actor id).
- * Accepts tokens signed with ADMIN_JWT_SECRET, ADMIN_JWT_SECRET_2, or ADMIN_JWT_SECRET_3 when set (demo / multi-issuer).
+ * Verifies HS256 Bearer JWT for dashboard users. Requires payload.role === "user" and sub (user id).
+ * Accepts tokens signed with USER_JWT_SECRET, USER_JWT_SECRET_2, or USER_JWT_SECRET_3 when set (demo / multi-issuer).
  */
-export function requireAdmin(req, res, next) {
-  const primary = process.env.ADMIN_JWT_SECRET;
+export function requireUser(req, res, next) {
+  const primary = process.env.USER_JWT_SECRET;
   if (!primary || primary.trim() === "") {
     return next(
       new Error(
-        "ADMIN_JWT_SECRET is not configured. Set ADMIN_JWT_SECRET in environment variables."
+        "USER_JWT_SECRET is not configured. Set USER_JWT_SECRET in environment variables."
       )
     );
   }
-  const secrets = secretsFromEnv(ADMIN_JWT_ENV_NAMES);
+  const secrets = secretsFromEnv(USER_JWT_ENV_NAMES);
 
   const header = req.headers.authorization;
   if (!header || typeof header !== "string" || !header.startsWith("Bearer ")) {
@@ -36,14 +36,14 @@ export function requireAdmin(req, res, next) {
     if (!payload || typeof payload !== "object") {
       return next(new UnauthorizedError("Invalid token payload."));
     }
-    if (payload.role !== "admin") {
-      return next(new ForbiddenError("Admin role required."));
+    if (payload.role !== "user") {
+      return next(new ForbiddenError("User role required."));
     }
     const id = typeof payload.sub === "string" ? payload.sub : undefined;
     if (!id) {
-      return next(new ForbiddenError("Token must include sub (admin id)."));
+      return next(new ForbiddenError("Token must include sub (user id)."));
     }
-    req.admin = {
+    req.user = {
       id,
       email: typeof payload.email === "string" ? payload.email : undefined,
     };

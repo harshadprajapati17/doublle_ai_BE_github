@@ -2,7 +2,7 @@
  * @param {import('express').Request} req
  * @param {import('express').Response} res
  */
-function notFoundHandler(req, res) {
+export function notFoundHandler(req, res) {
   res.status(404).json({
     error: {
       code: "NOT_FOUND",
@@ -11,5 +11,3 @@ function notFoundHandler(req, res) {
     },
   });
 }
-
-module.exports = { notFoundHandler };

@@ -1,15 +1,10 @@
-const { Prisma } = require("@prisma/client");
-const { prisma } = require("../data/prismaClient");
-const programRepo = require("../data/programRepo");
-const programVersionRepo = require("../data/programVersionRepo");
-const { writeAuditLog } = require("./auditService");
-const { programSnapshotPayload, programToDto } = require("./programSerializer");
-const { encodeProgramListCursor, decodeProgramListCursor } = require("../utils/programCursor");
-const {
-  ValidationError,
-  NotFoundError,
-  ConflictError,
-} = require("../errors");
+import { prisma, Decimal } from "../data/prismaClient.js";
+import * as programRepo from "../data/programRepo.js";
+import * as programVersionRepo from "../data/programVersionRepo.js";
+import { writeAuditLog } from "./auditService.js";
+import { programSnapshotPayload, programToDto } from "./programSerializer.js";
+import { encodeProgramListCursor, decodeProgramListCursor } from "../utils/programCursor.js";
+import { ValidationError, NotFoundError, ConflictError } from "../errors/index.js";
 
 /**
  * @param {Record<string, unknown>} body
@@ -19,23 +14,18 @@ function toCreateData(body, actorId) {
   return {
     name: body.name,
     status: "DRAFT",
-    rewardPct: new Prisma.Decimal(String(body.rewardPct)),
-    rewardDurationMonths: body.rewardDurationMonths,
+    rewardPct: new Decimal(String(body.referrerRewardPct)),
+    rewardDurationMonths: body.referrerRewardDurationMonths,
     cookieDays: body.cookieDays,
     attributionRule: body.attributionRule,
-    refereeBenefitType: body.refereeBenefitType,
+    refereeBenefitType: "NONE",
     refereeBenefitValue:
-      body.refereeBenefitValue == null ? null : new Prisma.Decimal(String(body.refereeBenefitValue)),
-    refereeBenefitTrialDays: body.refereeBenefitTrialDays ?? null,
+      body.refereeBenefitValue == null ? null : new Decimal(String(body.refereeBenefitValue)),
+    refereeBenefitTrialDays: null,
     holdPeriodDays: body.holdPeriodDays,
-    monthlyCap: body.monthlyCap == null ? null : new Prisma.Decimal(String(body.monthlyCap)),
-    lifetimeCap: body.lifetimeCap == null ? null : new Prisma.Decimal(String(body.lifetimeCap)),
+    monthlyCap: body.monthlyCap == null ? null : new Decimal(String(body.monthlyCap)),
+    lifetimeCap: body.lifetimeCap == null ? null : new Decimal(String(body.lifetimeCap)),
     capBehavior: body.capBehavior,
-    refereeMinSpendAmount:
-      body.refereeMinSpendAmount == null
-        ? null
-        : new Prisma.Decimal(String(body.refereeMinSpendAmount)),
-    refereeMinSpendWindowDays: body.refereeMinSpendWindowDays ?? null,
     currency: body.currency,
     termsVersion: body.termsVersion,
     createdByAdminId: actorId,
@@ -49,44 +39,35 @@ function toUpdateData(body) {
   /** @type {Record<string, unknown>} */
   const data = {};
   if (body.name !== undefined) data.name = body.name;
-  if (body.rewardPct !== undefined) data.rewardPct = new Prisma.Decimal(String(body.rewardPct));
-  if (body.rewardDurationMonths !== undefined) data.rewardDurationMonths = body.rewardDurationMonths;
+  if (body.referrerRewardPct !== undefined) {
+    data.rewardPct = new Decimal(String(body.referrerRewardPct));
+  }
+  if (body.referrerRewardDurationMonths !== undefined) {
+    data.rewardDurationMonths = body.referrerRewardDurationMonths;
+  }
   if (body.cookieDays !== undefined) data.cookieDays = body.cookieDays;
   if (body.attributionRule !== undefined) data.attributionRule = body.attributionRule;
-  if (body.refereeBenefitType !== undefined) data.refereeBenefitType = body.refereeBenefitType;
   if (body.refereeBenefitValue !== undefined) {
     data.refereeBenefitValue =
-      body.refereeBenefitValue == null ? null : new Prisma.Decimal(String(body.refereeBenefitValue));
-  }
-  if (body.refereeBenefitTrialDays !== undefined) {
-    data.refereeBenefitTrialDays = body.refereeBenefitTrialDays;
+      body.refereeBenefitValue == null ? null : new Decimal(String(body.refereeBenefitValue));
   }
   if (body.holdPeriodDays !== undefined) data.holdPeriodDays = body.holdPeriodDays;
   if (body.monthlyCap !== undefined) {
-    data.monthlyCap = body.monthlyCap == null ? null : new Prisma.Decimal(String(body.monthlyCap));
+    data.monthlyCap = body.monthlyCap == null ? null : new Decimal(String(body.monthlyCap));
   }
   if (body.lifetimeCap !== undefined) {
-    data.lifetimeCap = body.lifetimeCap == null ? null : new Prisma.Decimal(String(body.lifetimeCap));
+    data.lifetimeCap = body.lifetimeCap == null ? null : new Decimal(String(body.lifetimeCap));
   }
   if (body.capBehavior !== undefined) data.capBehavior = body.capBehavior;
-  if (body.refereeMinSpendAmount !== undefined) {
-    data.refereeMinSpendAmount =
-      body.refereeMinSpendAmount == null
-        ? null
-        : new Prisma.Decimal(String(body.refereeMinSpendAmount));
-  }
-  if (body.refereeMinSpendWindowDays !== undefined) {
-    data.refereeMinSpendWindowDays = body.refereeMinSpendWindowDays;
-  }
   if (body.currency !== undefined) data.currency = body.currency;
   if (body.termsVersion !== undefined) data.termsVersion = body.termsVersion;
   return data;
 }
 
 /**
- * @param {import('@prisma/client').Prisma.TransactionClient} tx
+ * @param {import('../generated/prisma/client').Prisma.TransactionClient} tx
  * @param {string} programId
- * @param {import('@prisma/client').Prisma.ProgramUpdateInput} patch
+ * @param {import('../generated/prisma/client').Prisma.ProgramUpdateInput} patch
  * @param {string} actorId
  * @param {string | null} changeReason
  * @param {string} auditAction
@@ -121,7 +102,7 @@ async function bumpProgramVersion(tx, programId, patch, actorId, changeReason, a
   return updated;
 }
 
-async function createProgram(actorId, body) {
+export async function createProgram(actorId, body) {
   const data = toCreateData(body, actorId);
   const created = await prisma.$transaction(async (tx) => {
     const prog = await programRepo.create(tx, {
@@ -150,9 +131,9 @@ async function createProgram(actorId, body) {
 /**
  * @param {object} query
  */
-async function listPrograms(query) {
+export async function listPrograms(query) {
   const limit = query.limit;
-  const where = /** @type {import('@prisma/client').Prisma.ProgramWhereInput} */ ({});
+  const where = /** @type {import('../generated/prisma/client').Prisma.ProgramWhereInput} */ ({});
 
   if (query.status) {
     where.status = query.status;
@@ -199,7 +180,7 @@ async function listPrograms(query) {
  * @param {string} id
  * @param {{ include?: 'versions' }} query
  */
-async function getProgramById(id, query) {
+export async function getProgramById(id, query) {
   const row = await programRepo.findUnique(
     prisma,
     id,
@@ -211,7 +192,7 @@ async function getProgramById(id, query) {
   return { data: programToDto(row, { includeVersions: query.include === "versions" }) };
 }
 
-async function updateProgram(actorId, id, body) {
+export async function updateProgram(actorId, id, body) {
   const patch = toUpdateData(body);
   const updated = await prisma.$transaction(async (tx) => {
     const existing = await programRepo.findUnique(tx, id, undefined);
@@ -234,7 +215,7 @@ async function updateProgram(actorId, id, body) {
  * @param {string} id
  * @param {{ force: boolean }} query
  */
-async function activateProgram(actorId, id, query) {
+export async function activateProgram(actorId, id, query) {
   const result = await prisma.$transaction(async (tx) => {
     const self = await programRepo.findUnique(tx, id, undefined);
     if (!self) throw new NotFoundError("Program not found.");
@@ -280,7 +261,7 @@ async function activateProgram(actorId, id, query) {
   return { data: programToDto(result.program), meta: result.noOp ? { noOp: true } : undefined };
 }
 
-async function disableProgram(actorId, id) {
+export async function disableProgram(actorId, id) {
   const result = await prisma.$transaction(async (tx) => {
     const existing = await programRepo.findUnique(tx, id, undefined);
     if (!existing) throw new NotFoundError("Program not found.");
@@ -300,12 +281,3 @@ async function disableProgram(actorId, id) {
   });
   return result;
 }
-
-module.exports = {
-  createProgram,
-  listPrograms,
-  getProgramById,
-  updateProgram,
-  activateProgram,
-  disableProgram,
-};

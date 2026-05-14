@@ -1,16 +1,16 @@
-const { create: createAuditRow } = require("../data/auditLogRepo");
+import { create as createAuditRow } from "../data/auditLogRepo.js";
 
 /**
- * @param {import('@prisma/client').Prisma.TransactionClient} tx
+ * @param {import('../generated/prisma/client').Prisma.TransactionClient} tx
  * @param {{
  *   actorId: string;
  *   action: string;
  *   targetType: string;
  *   targetId: string;
- *   payload: import('@prisma/client').Prisma.InputJsonValue;
+ *   payload: import('../generated/prisma/client').Prisma.InputJsonValue;
  * }} entry
  */
-async function writeAuditLog(tx, entry) {
+export async function writeAuditLog(tx, entry) {
   await createAuditRow(tx, {
     actorId: entry.actorId,
     action: entry.action,
@@ -19,5 +19,3 @@ async function writeAuditLog(tx, entry) {
     payload: entry.payload,
   });
 }
-
-module.exports = { writeAuditLog };

@@ -1,4 +1,7 @@
-jest.mock("../config/razorpay", () => ({
+import { jest } from "@jest/globals";
+import crypto from "node:crypto";
+
+jest.unstable_mockModule("../config/razorpay.js", () => ({
   razorpay: {
     orders: {
       create: jest.fn(),
@@ -6,10 +9,8 @@ jest.mock("../config/razorpay", () => ({
   },
 }));
 
-const crypto = require("node:crypto");
-const request = require("supertest");
-
-const { app } = require("../app");
+const request = (await import("supertest")).default;
+const { app } = await import("../app.js");
 
 describe("POST /api/payment/verify-payment", () => {
   beforeEach(() => {
@@ -69,4 +70,3 @@ describe("POST /api/payment/verify-payment", () => {
     expect(res.body).toHaveProperty("error.code", "VALIDATION_ERROR");
   });
 });
-

@@ -1,5 +1,5 @@
-const { ZodError } = require("zod");
-const { ValidationError } = require("../errors");
+import { ZodError } from "zod";
+import { ValidationError } from "../errors/index.js";
 
 /**
  * @param {{
@@ -8,14 +8,19 @@ const { ValidationError } = require("../errors");
  *   body?: import('zod').ZodTypeAny;
  * }} schemas
  */
-function validateRequest(schemas) {
+export function validateRequest(schemas) {
   return (req, res, next) => {
     try {
       if (schemas.params) {
         req.params = schemas.params.parse(req.params);
       }
       if (schemas.query) {
-        req.query = schemas.query.parse(req.query);
+        Object.defineProperty(req, "query", {
+          value: schemas.query.parse(req.query),
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
       }
       if (schemas.body) {
         req.body = schemas.body.parse(req.body);
@@ -29,5 +34,3 @@ function validateRequest(schemas) {
     }
   };
 }
-
-module.exports = { validateRequest };
