@@ -9,7 +9,7 @@ const options = {
       title: "Doublle AI Backend API",
       version: "1.0.0",
       description:
-        "Auto-generated OpenAPI docs for the Doublle AI backend (health, payment, admin programs).",
+        "Auto-generated OpenAPI docs for the Doublle AI backend (health, payment, admin programs, referral).",
     },
     servers: [
       { url: `http://localhost:${port}`, description: "Local" },
@@ -21,7 +21,14 @@ const options = {
           scheme: "bearer",
           bearerFormat: "JWT",
           description:
-            "Admin HS256 JWT. Payload must include role=\"admin\" and sub=adminId.",
+            "Admin HS256 JWT. Payload must include role=\"admin\" and sub=adminId. Signed with ADMIN_JWT_SECRET, ADMIN_JWT_SECRET_2, or ADMIN_JWT_SECRET_3 (when set).",
+        },
+        userBearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description:
+            "User HS256 JWT. Payload must include role=\"user\" and sub=userId. Signed with USER_JWT_SECRET, USER_JWT_SECRET_2, or USER_JWT_SECRET_3 (when set).",
         },
       },
       schemas: {
@@ -222,6 +229,11 @@ const options = {
       { name: "Health", description: "Service health checks" },
       { name: "Payment", description: "Razorpay order + verification" },
       { name: "Admin · Programs", description: "Referral program admin APIs" },
+      {
+        name: "Referral",
+        description:
+          "Referral program: public signup-time code validation; authenticated link, terms, and stats",
+      },
     ],
   },
   apis: ["./routes/**/*.js"],

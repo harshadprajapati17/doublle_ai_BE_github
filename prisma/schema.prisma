@@ -57,9 +57,41 @@ model Program {
 
   versions ProgramVersion[]
 
+  referralTermsAcceptances ReferralTermsAcceptance[]
+  referralCodes            ReferralCode[]
+
   @@index([status])
   @@index([name])
   @@map("programs")
+}
+
+model ReferralTermsAcceptance {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.VarChar(255)
+  programId    String   @map("program_id") @db.Uuid
+  termsVersion String   @map("terms_version") @db.VarChar(64)
+  acceptedAt   DateTime @default(now()) @map("accepted_at")
+  ip           String   @map("ip") @db.VarChar(45)
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, programId, termsVersion])
+  @@index([userId, programId])
+  @@map("referral_terms_acceptances")
+}
+
+model ReferralCode {
+  id          String   @id @default(uuid()) @db.Uuid
+  ownerUserId String   @map("owner_user_id") @db.VarChar(255)
+  programId   String   @map("program_id") @db.Uuid
+  code        String   @unique @db.VarChar(16)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerUserId, programId])
+  @@index([code])
+  @@map("referral_codes")
 }
 
 model ProgramVersion {

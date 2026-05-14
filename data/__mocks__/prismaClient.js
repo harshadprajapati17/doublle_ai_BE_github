@@ -13,6 +13,7 @@ const prisma = {
   program: {
     findMany: jest.fn().mockResolvedValue([]),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
   },
@@ -21,6 +22,14 @@ const prisma = {
   },
   adminAuditLog: {
     create: jest.fn().mockResolvedValue({ id: "00000000-0000-0000-0000-000000000002" }),
+  },
+  referralTermsAcceptance: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+  },
+  referralCode: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
   },
   $transaction: jest.fn(),
 };

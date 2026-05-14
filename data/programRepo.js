@@ -25,6 +25,16 @@ export async function findMany(client, args) {
 
 /**
  * @param {import('../generated/prisma/client').Prisma.TransactionClient | import('../generated/prisma/client').PrismaClient} client
+ */
+export async function findFirstActive(client) {
+  return client.program.findFirst({
+    where: { status: "ACTIVE" },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/**
+ * @param {import('../generated/prisma/client').Prisma.TransactionClient | import('../generated/prisma/client').PrismaClient} client
  * @param {string} id
  * @param {import('../generated/prisma/client').Prisma.ProgramUpdateInput} data
  */

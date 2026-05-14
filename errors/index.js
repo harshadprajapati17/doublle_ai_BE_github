@@ -49,3 +49,18 @@ export class ConflictError extends AppError {
     this.name = "ConflictError";
   }
 }
+
+export class NoActiveReferralProgramError extends AppError {
+  constructor(message = "No active referral program.") {
+    super("NO_ACTIVE_REFERRAL_PROGRAM", message, 404);
+    this.name = "NoActiveReferralProgramError";
+  }
+}
+
+/** Missing or invalid required environment configuration (e.g. public base URL). */
+export class ServiceMisconfiguredError extends AppError {
+  constructor(message) {
+    super("SERVICE_MISCONFIGURED", message, 503);
+    this.name = "ServiceMisconfiguredError";
+  }
+}
