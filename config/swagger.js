@@ -1,6 +1,10 @@
 import swaggerJsdoc from "swagger-jsdoc";
 
 const port = Number(process.env.PORT) || 3000;
+const publicApiUrl = (process.env.PUBLIC_API_URL || "")
+  .trim()
+  .replace(/\/$/, "");
+const serverUrl = publicApiUrl || `http://localhost:${port}`;
 
 const options = {
   definition: {
@@ -11,9 +15,7 @@ const options = {
       description:
         "Auto-generated OpenAPI docs for the Doublle AI backend (health, payment, admin programs, referral).",
     },
-    servers: [
-      { url: `http://localhost:${port}`, description: "Local" },
-    ],
+    servers: [{ url: serverUrl }],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -21,14 +23,14 @@ const options = {
           scheme: "bearer",
           bearerFormat: "JWT",
           description:
-            "Admin HS256 JWT. Payload must include role=\"admin\" and sub=adminId. Signed with ADMIN_JWT_SECRET, ADMIN_JWT_SECRET_2, or ADMIN_JWT_SECRET_3 (when set).",
+            'Admin HS256 JWT. Payload must include role="admin" and sub=adminId. Signed with ADMIN_JWT_SECRET, ADMIN_JWT_SECRET_2, or ADMIN_JWT_SECRET_3 (when set).',
         },
         userBearerAuth: {
           type: "http",
           scheme: "bearer",
           bearerFormat: "JWT",
           description:
-            "User HS256 JWT. Payload must include role=\"user\" and sub=userId. Signed with USER_JWT_SECRET, USER_JWT_SECRET_2, or USER_JWT_SECRET_3 (when set).",
+            'User HS256 JWT. Payload must include role="user" and sub=userId. Signed with USER_JWT_SECRET, USER_JWT_SECRET_2, or USER_JWT_SECRET_3 (when set).',
         },
       },
       schemas: {
@@ -130,7 +132,11 @@ const options = {
           properties: {
             name: { type: "string", maxLength: 255 },
             referrerRewardPct: { type: "number", minimum: 0, maximum: 100 },
-            referrerRewardDurationMonths: { type: "integer", minimum: 1, maximum: 240 },
+            referrerRewardDurationMonths: {
+              type: "integer",
+              minimum: 1,
+              maximum: 240,
+            },
             cookieDays: { type: "integer", minimum: 1, maximum: 365 },
             attributionRule: { $ref: "#/components/schemas/AttributionRule" },
             refereeBenefitValue: { type: "number", minimum: 0, nullable: true },
@@ -138,14 +144,18 @@ const options = {
             monthlyCap: { type: "number", minimum: 0, nullable: true },
             lifetimeCap: { type: "number", minimum: 0, nullable: true },
             capBehavior: { $ref: "#/components/schemas/CapBehavior" },
-            currency: { type: "string", minLength: 3, maxLength: 3, default: "USD" },
+            currency: {
+              type: "string",
+              minLength: 3,
+              maxLength: 3,
+              default: "USD",
+            },
             termsVersion: { type: "string", maxLength: 64 },
           },
         },
         ProgramUpdate: {
           type: "object",
-          description:
-            "All fields optional, but at least one must be present.",
+          description: "All fields optional, but at least one must be present.",
           example: {
             name: "Standard Referral Pro",
             referrerRewardPct: 7.5,
@@ -154,7 +164,11 @@ const options = {
           properties: {
             name: { type: "string", maxLength: 255 },
             referrerRewardPct: { type: "number", minimum: 0, maximum: 100 },
-            referrerRewardDurationMonths: { type: "integer", minimum: 1, maximum: 240 },
+            referrerRewardDurationMonths: {
+              type: "integer",
+              minimum: 1,
+              maximum: 240,
+            },
             cookieDays: { type: "integer", minimum: 1, maximum: 365 },
             attributionRule: { $ref: "#/components/schemas/AttributionRule" },
             refereeBenefitValue: { type: "number", minimum: 0, nullable: true },
@@ -168,7 +182,14 @@ const options = {
         },
         Plan: {
           type: "object",
-          required: ["commitment", "mode", "requests", "monthly", "months", "total"],
+          required: [
+            "commitment",
+            "mode",
+            "requests",
+            "monthly",
+            "months",
+            "total",
+          ],
           properties: {
             commitment: { type: "string", example: "annual" },
             mode: { type: "string", example: "subscription" },
@@ -214,9 +235,14 @@ const options = {
           example: {
             razorpay_order_id: "order_NnNnNnNnNnNnNn",
             razorpay_payment_id: "pay_NnNnNnNnNnNnNn",
-            razorpay_signature: "9b1e8c6e4f2a3d5e7f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f",
+            razorpay_signature:
+              "9b1e8c6e4f2a3d5e7f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f",
           },
-          required: ["razorpay_order_id", "razorpay_payment_id", "razorpay_signature"],
+          required: [
+            "razorpay_order_id",
+            "razorpay_payment_id",
+            "razorpay_signature",
+          ],
           properties: {
             razorpay_order_id: { type: "string" },
             razorpay_payment_id: { type: "string" },
@@ -257,11 +283,16 @@ function attachRequestBodyExamplesFromComponentSchemas(openapi) {
       for (const media of Object.values(op.requestBody.content)) {
         if (!media || typeof media !== "object") continue;
         const ref = media.schema?.$ref;
-        if (typeof ref !== "string" || !ref.startsWith("#/components/schemas/")) continue;
+        if (typeof ref !== "string" || !ref.startsWith("#/components/schemas/"))
+          continue;
         const name = ref.slice("#/components/schemas/".length);
         const component = schemas[name];
         const ex = component?.example;
-        if (ex !== undefined && media.example === undefined && media.examples === undefined) {
+        if (
+          ex !== undefined &&
+          media.example === undefined &&
+          media.examples === undefined
+        ) {
           media.example = structuredClone(ex);
         }
       }
