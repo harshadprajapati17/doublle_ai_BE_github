@@ -1,10 +1,11 @@
 import swaggerJsdoc from "swagger-jsdoc";
 
 const port = Number(process.env.PORT) || 3000;
-const publicApiUrl = (process.env.PUBLIC_API_URL || "")
-  .trim()
-  .replace(/\/$/, "");
-const serverUrl = publicApiUrl || `http://localhost:${port}`;
+const clean = (v) => (v || "").trim().replace(/\/$/, "");
+const serverUrl =
+  clean(process.env.PUBLIC_API_URL) ||
+  clean(process.env.RENDER_EXTERNAL_URL) ||
+  `http://localhost:${port}`;
 
 const options = {
   definition: {
