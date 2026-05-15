@@ -14,7 +14,7 @@ const options = {
       title: "Doublle AI Backend API",
       version: "1.0.0",
       description:
-        "Auto-generated OpenAPI docs for the Doublle AI backend (health, payment, admin programs, referral).",
+        "Auto-generated OpenAPI docs for the Doublle AI backend (health, payment, billing subscriptions, admin programs, referral, optional DB-backed demo user auth).",
     },
     servers: [{ url: serverUrl }],
     components: {
@@ -31,7 +31,7 @@ const options = {
           scheme: "bearer",
           bearerFormat: "JWT",
           description:
-            'User HS256 JWT. Payload must include role="user" and sub=userId. Signed with USER_JWT_SECRET, USER_JWT_SECRET_2, or USER_JWT_SECRET_3 (when set).',
+            'User HS256 JWT. Payload must include role="user" and sub=userId. Signed with USER_JWT_SECRET, USER_JWT_SECRET_2, or USER_JWT_SECRET_3 (when set). Alternatively, the same JWT may be sent in the HttpOnly `doublle_access_token` cookie (name overridable with USER_ACCESS_TOKEN_COOKIE_NAME) after POST /api/v1/auth/demo.',
         },
       },
       schemas: {
@@ -48,6 +48,65 @@ const options = {
                 details: {},
               },
             },
+          },
+        },
+        DemoAuthLoginRequest: {
+          type: "object",
+          additionalProperties: false,
+          required: ["email"],
+          properties: {
+            email: { type: "string", format: "email", example: "testuser1@test.com" },
+          },
+          example: { email: "testuser1@test.com" },
+        },
+        DemoAuthLoginSuccess: {
+          type: "object",
+          required: ["data"],
+          properties: {
+            data: {
+              type: "object",
+              required: ["accessToken", "tokenType", "expiresInSeconds"],
+              properties: {
+                accessToken: { type: "string" },
+                tokenType: { type: "string", example: "Bearer" },
+                expiresInSeconds: { type: "integer", example: 86400 },
+              },
+            },
+          },
+        },
+        DemoUser: {
+          type: "object",
+          required: ["id", "sub", "email", "isEnabled", "createdAt", "updatedAt"],
+          properties: {
+            id: { type: "string", format: "uuid" },
+            sub: { type: "string", example: "demo-user-1" },
+            email: { type: "string", format: "email", example: "testuser1@test.com" },
+            name: { type: "string", nullable: true },
+            isEnabled: { type: "boolean" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        DemoUserCreate: {
+          type: "object",
+          additionalProperties: false,
+          required: ["sub", "email"],
+          example: { sub: "demo-user-1", email: "testuser1@test.com", name: "Demo One" },
+          properties: {
+            sub: { type: "string", minLength: 1, maxLength: 256 },
+            email: { type: "string", format: "email" },
+            name: { type: "string", minLength: 1, maxLength: 200 },
+          },
+        },
+        DemoUserPatch: {
+          type: "object",
+          additionalProperties: false,
+          example: { isEnabled: false },
+          properties: {
+            sub: { type: "string", minLength: 1, maxLength: 256 },
+            email: { type: "string", format: "email" },
+            name: { type: "string", nullable: true, minLength: 1, maxLength: 200 },
+            isEnabled: { type: "boolean" },
           },
         },
         ProgramStatus: {
@@ -250,16 +309,66 @@ const options = {
             razorpay_signature: { type: "string" },
           },
         },
+        BillingFrequency: {
+          type: "string",
+          enum: ["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"],
+        },
+        CreateSubscriptionRequest: {
+          type: "object",
+          additionalProperties: false,
+          required: ["amount", "currency", "frequency"],
+          example: {
+            amount: 2500,
+            currency: "INR",
+            frequency: "QUARTERLY",
+          },
+          properties: {
+            amount: {
+              type: "integer",
+              minimum: 1,
+              description: "Billing amount per cycle in major currency units (e.g. 2500 INR).",
+            },
+            currency: { type: "string", minLength: 3, maxLength: 3, example: "INR" },
+            frequency: { $ref: "#/components/schemas/BillingFrequency" },
+          },
+        },
+        CancelSubscriptionRequest: {
+          type: "object",
+          additionalProperties: false,
+          required: ["cancelAtCycleEnd"],
+          example: { cancelAtCycleEnd: false },
+          properties: {
+            cancelAtCycleEnd: {
+              type: "boolean",
+              description: "If true, cancel at end of current billing period.",
+            },
+          },
+        },
       },
     },
     tags: [
       { name: "Health", description: "Service health checks" },
       { name: "Payment", description: "Razorpay order + verification" },
+      {
+        name: "Billing",
+        description:
+          "Custom recurring subscriptions (per-user amount and frequency) and Razorpay webhooks",
+      },
       { name: "Admin · Programs", description: "Referral program admin APIs" },
+      {
+        name: "Admin · Demo users",
+        description:
+          "CRUD for `demo_users` rows used by passwordless demo login when `DEMO_AUTH_ENABLED` is on.",
+      },
       {
         name: "Referral",
         description:
           "Referral program: public signup-time code validation; authenticated link, terms, and stats",
+      },
+      {
+        name: "Auth · Demo",
+        description:
+          "Optional passwordless JWT mint for demo users in `demo_users` (`DEMO_AUTH_ENABLED`). Not mounted in production unless `DEMO_AUTH_ALLOW_PRODUCTION=true`.",
       },
     ],
   },

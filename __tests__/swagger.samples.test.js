@@ -32,11 +32,33 @@ describe("OpenAPI sample examples", () => {
     expect(ex.razorpay_signature.length).toBeGreaterThan(10);
   });
 
+  test("CreateSubscriptionRequest example matches BillingFrequency enum", () => {
+    const ex = swaggerSpec.components.schemas.CreateSubscriptionRequest.example;
+    expect(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"]).toContain(ex.frequency);
+    expect(ex.currency).toBe("INR");
+    expect(typeof ex.amount).toBe("number");
+  });
+
+  test("CancelSubscriptionRequest example includes cancelAtCycleEnd", () => {
+    const ex = swaggerSpec.components.schemas.CancelSubscriptionRequest.example;
+    expect(typeof ex.cancelAtCycleEnd).toBe("boolean");
+  });
+
   test("POST /api/v1/admin/programs requestBody has media-level example (Swagger UI)", () => {
     const media = swaggerSpec.paths["/api/v1/admin/programs"].post.requestBody.content[
       "application/json"
     ];
     expect(media.example).toEqual(swaggerSpec.components.schemas.ProgramCreate.example);
     expect(media.schema.$ref).toBe("#/components/schemas/ProgramCreate");
+  });
+
+  test("DemoAuthLoginRequest example email matches documented demo user", () => {
+    const ex = swaggerSpec.components.schemas.DemoAuthLoginRequest.example;
+    expect(ex).toEqual({ email: "testuser1@test.com" });
+  });
+
+  test("DemoUserCreate example includes sub and email", () => {
+    const ex = swaggerSpec.components.schemas.DemoUserCreate.example;
+    expect(ex).toMatchObject({ sub: "demo-user-1", email: "testuser1@test.com" });
   });
 });

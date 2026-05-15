@@ -31,6 +31,43 @@ const prisma = {
     findUnique: jest.fn(),
     create: jest.fn(),
   },
+  referral: {
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
+  billingCustomer: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
+  billingPlan: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+  },
+  subscription: {
+    findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
+  subscriptionPayment: {
+    upsert: jest.fn(),
+  },
+  webhookEvent: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+  },
+  demoUser: {
+    findFirst: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  },
   $transaction: jest.fn(),
 };
 

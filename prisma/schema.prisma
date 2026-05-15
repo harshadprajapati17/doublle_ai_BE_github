@@ -59,6 +59,7 @@ model Program {
 
   referralTermsAcceptances ReferralTermsAcceptance[]
   referralCodes            ReferralCode[]
+  referrals                Referral[]
 
   @@index([status])
   @@index([name])
@@ -94,6 +95,28 @@ model ReferralCode {
   @@map("referral_codes")
 }
 
+/// Attribution of a referee to a referrer under a program (code snapshot + source).
+model Referral {
+  id                     String    @id @default(uuid()) @db.Uuid
+  refereeUserId          String    @map("referee_user_id") @db.VarChar(255)
+  referrerUserId         String    @map("referrer_user_id") @db.VarChar(255)
+  programId              String    @map("program_id") @db.Uuid
+  code                   String    @db.VarChar(16)
+  source                 String    @db.VarChar(64)
+  refereeCreditApplied   Boolean   @default(false) @map("referee_credit_applied")
+  refereeCreditAppliedAt DateTime? @map("referee_credit_applied_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@unique([refereeUserId, programId])
+  @@index([referrerUserId, programId])
+  @@index([programId])
+  @@index([code])
+  @@map("referrals")
+}
+
 model ProgramVersion {
   id                 String   @id @default(uuid()) @db.Uuid
   programId          String   @map("program_id") @db.Uuid
@@ -121,4 +144,134 @@ model AdminAuditLog {
 
   @@index([targetType, targetId])
   @@map("admin_audit_logs")
+}
+
+enum BillingFrequency {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  CREATED
+  AUTHENTICATED
+  ACTIVE
+  PENDING
+  HALTED
+  PAUSED
+  CANCELLED
+  COMPLETED
+  EXPIRED
+}
+
+enum SubscriptionPaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+model BillingCustomer {
+  id                 String         @id @default(uuid()) @db.Uuid
+  userId             String         @unique @map("user_id") @db.VarChar(255)
+  razorpayCustomerId String         @unique @map("rzp_customer_id") @db.VarChar(64)
+  email              String?        @db.VarChar(255)
+  createdAt          DateTime       @default(now()) @map("created_at")
+  subscriptions      Subscription[]
+
+  @@map("billing_customers")
+}
+
+model BillingPlan {
+  id               String           @id @default(uuid()) @db.Uuid
+  razorpayPlanId   String           @unique @map("rzp_plan_id") @db.VarChar(64)
+  amountMinor      Int              @map("amount_minor")
+  currency         String           @db.VarChar(3)
+  frequency        BillingFrequency
+  period           String           @db.VarChar(16)
+  interval         Int
+  createdAt        DateTime         @default(now()) @map("created_at")
+  subscriptions    Subscription[]
+
+  @@unique([amountMinor, currency, frequency])
+  @@map("billing_plans")
+}
+
+model Subscription {
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @map("user_id") @db.VarChar(255)
+  customerId         String             @map("customer_id") @db.Uuid
+  planId             String             @map("plan_id") @db.Uuid
+  razorpaySubId      String             @unique @map("rzp_subscription_id") @db.VarChar(64)
+  status             SubscriptionStatus
+  amountMinor        Int                @map("amount_minor")
+  currency           String             @db.VarChar(3)
+  frequency          BillingFrequency
+  totalCount         Int                @map("total_count")
+  paidCount          Int                @default(0) @map("paid_count")
+  currentStart       DateTime?          @map("current_start")
+  currentEnd         DateTime?          @map("current_end")
+  nextChargeAt       DateTime?          @map("next_charge_at")
+  cancelledAt        DateTime?          @map("cancelled_at")
+  cancelAtCycleEnd   Boolean            @default(false) @map("cancel_at_cycle_end")
+  shortUrl           String?            @map("short_url") @db.Text
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  customer BillingCustomer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  plan     BillingPlan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  payments SubscriptionPayment[]
+
+  @@index([userId, status])
+  @@map("subscriptions")
+}
+
+model SubscriptionPayment {
+  id                String                    @id @default(uuid()) @db.Uuid
+  subscriptionId    String                    @map("subscription_id") @db.Uuid
+  razorpayPaymentId String                    @unique @map("rzp_payment_id") @db.VarChar(64)
+  razorpayOrderId   String?                   @map("rzp_order_id") @db.VarChar(64)
+  razorpayInvoiceId String?                   @map("rzp_invoice_id") @db.VarChar(64)
+  amountMinor       Int                       @map("amount_minor")
+  currency          String                    @db.VarChar(3)
+  status            SubscriptionPaymentStatus
+  method            String?                   @db.VarChar(32)
+  errorCode         String?                   @map("error_code") @db.VarChar(128)
+  errorDescription  String?                   @map("error_description") @db.Text
+  capturedAt        DateTime?                 @map("captured_at")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@map("subscription_payments")
+}
+
+model WebhookEvent {
+  id               String    @id @default(uuid()) @db.Uuid
+  provider         String    @db.VarChar(32)
+  eventId          String    @unique @map("event_id") @db.VarChar(64)
+  eventType        String    @map("event_type") @db.VarChar(96)
+  payload          Json
+  receivedAt       DateTime  @default(now()) @map("received_at")
+  processedAt      DateTime? @map("processed_at")
+  processingError  String?   @map("processing_error") @db.Text
+
+  @@index([eventType])
+  @@map("webhook_events")
+}
+
+model DemoUser {
+  id        String   @id @default(uuid()) @db.Uuid
+  sub       String   @unique @db.VarChar(256)
+  email     String   @unique @db.VarChar(255)
+  name      String?  @db.VarChar(200)
+  isEnabled Boolean  @default(true) @map("is_enabled")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([email, isEnabled])
+  @@map("demo_users")
 }

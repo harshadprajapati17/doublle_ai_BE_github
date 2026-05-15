@@ -4,16 +4,35 @@ import morgan from "morgan";
 import swaggerUi from "swagger-ui-express";
 
 import healthRoutes from "./routes/health.js";
+import billingWebhookRoutes from "./routes/billingWebhook.js";
+import billingRoutes from "./routes/billing.js";
 import paymentRoutes from "./routes/payment.js";
 import adminProgramsRoutes from "./routes/admin/programs.js";
+import adminDemoUsersRoutes from "./routes/admin/demoUsers.js";
 import referralRoutes from "./routes/referral.js";
+import demoAuthRoutes from "./routes/demoAuth.js";
+import { isDemoAuthRuntimeEnabled } from "./config/demoAuthFlags.js";
 import { swaggerSpec } from "./config/swagger.js";
 import { notFoundHandler } from "./middlewares/notFound.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 
 export const app = express();
 
-app.use(cors());
+// Browser origins allowed to call the API. Comma-separated `CORS_ORIGINS` overrides the default localhost dev origin.
+const corsAllowedOrigins = (process.env.CORS_ORIGINS ?? "http://localhost:3000")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(cors({ origin: corsAllowedOrigins, credentials: true }));
+
+// Razorpay webhooks require the raw body for HMAC verification (must run before express.json()).
+app.use(
+  "/api/v1/billing/webhooks/razorpay",
+  express.raw({ type: "application/json" }),
+  billingWebhookRoutes
+);
+
 app.use(express.json());
 if (process.env.REQUEST_LOGGING === "1") {
   app.use(morgan("tiny"));
@@ -32,9 +51,14 @@ app.use(
 );
 
 app.use("/health", healthRoutes);
+app.use("/api/v1/billing", billingRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/v1/admin/programs", adminProgramsRoutes);
+app.use("/api/v1/admin/demo-users", adminDemoUsersRoutes);
 app.use("/api/v1/referral", referralRoutes);
+if (isDemoAuthRuntimeEnabled()) {
+  app.use("/api/v1/auth/demo", demoAuthRoutes);
+}
 
 app.use(notFoundHandler);
 app.use(errorHandler);
