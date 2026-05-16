@@ -18,6 +18,7 @@ const DEMO_ROW = {
 afterEach(() => {
   delete process.env.DEMO_AUTH_ENABLED;
   delete process.env.DEMO_AUTH_ALLOW_PRODUCTION;
+  delete process.env.DEMO_AUTH_PASSWORD;
   process.env.NODE_ENV = "test";
   jest.resetModules();
 });
@@ -94,13 +95,52 @@ describe("POST /api/v1/auth/demo", () => {
     expect(res.body.error?.code).toBe("UNAUTHENTICATED");
   });
 
+  test("accepts optional password field when DEMO_AUTH_PASSWORD is unset", async () => {
+    process.env.DEMO_AUTH_ENABLED = "true";
+    const { prisma } = await import("../../data/prismaClient.js");
+    prisma.demoUser.findFirst.mockResolvedValueOnce(DEMO_ROW);
+    const request = (await import("supertest")).default;
+    const { app } = await import("../../app.js");
+    const res = await request(app)
+      .post("/api/v1/auth/demo")
+      .send({ email: "testuser1@test.com", password: "ignored" });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.data?.accessToken).toBeTruthy();
+  });
+
+  test("returns 401 when DEMO_AUTH_PASSWORD is set and password does not match", async () => {
+    process.env.DEMO_AUTH_ENABLED = "true";
+    process.env.DEMO_AUTH_PASSWORD = "demo-secret";
+    const request = (await import("supertest")).default;
+    const { app } = await import("../../app.js");
+    const res = await request(app)
+      .post("/api/v1/auth/demo")
+      .send({ email: "testuser1@test.com", password: "wrong" });
+    expect(res.statusCode).toBe(401);
+    expect(res.body.error?.code).toBe("UNAUTHENTICATED");
+  });
+
+  test("returns 200 when DEMO_AUTH_PASSWORD matches", async () => {
+    process.env.DEMO_AUTH_ENABLED = "true";
+    process.env.DEMO_AUTH_PASSWORD = "demo-secret";
+    const { prisma } = await import("../../data/prismaClient.js");
+    prisma.demoUser.findFirst.mockResolvedValueOnce(DEMO_ROW);
+    const request = (await import("supertest")).default;
+    const { app } = await import("../../app.js");
+    const res = await request(app)
+      .post("/api/v1/auth/demo")
+      .send({ email: "testuser1@test.com", password: "demo-secret" });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.data?.accessToken).toBeTruthy();
+  });
+
   test("returns 400 for unknown JSON fields (strict body)", async () => {
     process.env.DEMO_AUTH_ENABLED = "true";
     const request = (await import("supertest")).default;
     const { app } = await import("../../app.js");
     const res = await request(app)
       .post("/api/v1/auth/demo")
-      .send({ email: "testuser1@test.com", password: "nope" });
+      .send({ email: "testuser1@test.com", extra: "nope" });
     expect(res.statusCode).toBe(400);
     expect(res.body.error?.code).toBe("VALIDATION_ERROR");
   });

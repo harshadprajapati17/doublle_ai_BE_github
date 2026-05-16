@@ -221,6 +221,39 @@ export async function createBillingPlanRow(data) {
 }
 
 /**
+ * @param {string} userId
+ */
+export async function countCapturedPaymentsForUser(userId) {
+  return prisma.subscriptionPayment.count({
+    where: {
+      status: "CAPTURED",
+      subscription: { userId },
+    },
+  });
+}
+
+/**
+ * Sum captured payment amounts (minor units) for a user within an optional window.
+ * @param {string} userId
+ * @param {{ since: Date; until?: Date }} window
+ */
+export async function sumCapturedAmountMinorForUserInWindow(userId, window) {
+  const capturedAt = { gte: window.since };
+  if (window.until) {
+    capturedAt.lte = window.until;
+  }
+  const result = await prisma.subscriptionPayment.aggregate({
+    where: {
+      status: "CAPTURED",
+      subscription: { userId },
+      capturedAt,
+    },
+    _sum: { amountMinor: true },
+  });
+  return result._sum.amountMinor ?? 0;
+}
+
+/**
  * @param {string} subscriptionId
  * @param {{
  *   razorpayPaymentId: string;

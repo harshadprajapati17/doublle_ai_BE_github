@@ -17,6 +17,8 @@ import { parseRazorpayTimestamp } from "../utils/razorpayTimestamps.js";
 import { verifyRazorpayWebhookSignature } from "../utils/verifyRazorpayWebhookSignature.js";
 import { logStructured } from "../utils/structuredLog.js";
 import { resolveRazorpayWebhookEventId } from "../utils/resolveRazorpayWebhookEventId.js";
+import { accrueCommissionOnPayment, clawbackCommissionsForPayment } from "./commissionService.js";
+import { tryApplyRefereeBenefitOnPayment } from "./refereeBenefitService.js";
 
 const WEBHOOK_SCOPE = "billing.webhook";
 
@@ -100,7 +102,7 @@ async function syncPaymentFromRzpEntity(entity) {
       ? /** @type {Record<string, unknown>} */ (entity.error)
       : null;
 
-  await upsertSubscriptionPaymentByRzpPaymentId(local.id, {
+  const paymentRow = await upsertSubscriptionPaymentByRzpPaymentId(local.id, {
     razorpayPaymentId: payId,
     razorpayOrderId: typeof entity.order_id === "string" ? entity.order_id : null,
     razorpayInvoiceId: typeof entity.invoice_id === "string" ? entity.invoice_id : null,
@@ -116,6 +118,26 @@ async function syncPaymentFromRzpEntity(entity) {
         ? parseRazorpayTimestamp(entity.created_at) ?? new Date()
         : parseRazorpayTimestamp(entity.created_at),
   });
+
+  if (paymentRow.status === "CAPTURED") {
+    await tryApplyRefereeBenefitOnPayment({
+      userId: local.userId,
+      paymentId: paymentRow.id,
+      subscriptionId: local.id,
+    });
+    await accrueCommissionOnPayment({
+      userId: local.userId,
+      payment: paymentRow,
+      subscription: local,
+    });
+  }
+
+  if (paymentRow.status === "REFUNDED") {
+    await clawbackCommissionsForPayment({
+      paymentId: paymentRow.id,
+      reason: "razorpay_payment_refunded",
+    });
+  }
 }
 
 /**

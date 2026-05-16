@@ -10,6 +10,7 @@ describe("OpenAPI sample examples", () => {
       referrerRewardDurationMonths: 12,
       cookieDays: 30,
       attributionRule: "FIRST_TOUCH_CODE_OVERRIDE",
+      refereeBenefitType: "NONE",
       refereeBenefitValue: null,
       holdPeriodDays: 30,
       capBehavior: "ROLL_FORWARD",
@@ -60,5 +61,10 @@ describe("OpenAPI sample examples", () => {
   test("DemoUserCreate example includes sub and email", () => {
     const ex = swaggerSpec.components.schemas.DemoUserCreate.example;
     expect(ex).toMatchObject({ sub: "demo-user-1", email: "testuser1@test.com" });
+  });
+
+  test("DemoAdminCreate example includes sub and email", () => {
+    const ex = swaggerSpec.components.schemas.DemoAdminCreate.example;
+    expect(ex).toMatchObject({ sub: "demo-admin-1", email: "admin1@test.com" });
   });
 });

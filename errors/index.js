@@ -57,6 +57,20 @@ export class NoActiveReferralProgramError extends AppError {
   }
 }
 
+export class SelfReferralError extends ValidationError {
+  constructor(message = "Self-referral is not allowed.") {
+    super(message, { reason: "SELF_REFERRAL" });
+    this.name = "SelfReferralError";
+  }
+}
+
+export class ReferralAlreadyAttributedError extends AppError {
+  constructor(message = "This referee is already attributed for the active program.") {
+    super("REFERRAL_ALREADY_ATTRIBUTED", message, 409);
+    this.name = "ReferralAlreadyAttributedError";
+  }
+}
+
 /** Missing or invalid required environment configuration (e.g. public base URL). */
 export class ServiceMisconfiguredError extends AppError {
   constructor(message) {

@@ -2,9 +2,18 @@ import { prisma, Decimal } from "../data/prismaClient.js";
 import * as programRepo from "../data/programRepo.js";
 import * as programVersionRepo from "../data/programVersionRepo.js";
 import { writeAuditLog } from "./auditService.js";
-import { programSnapshotPayload, programToDto } from "./programSerializer.js";
+import {
+  programSnapshotPayload,
+  programToDto,
+  programToUserDto,
+} from "./programSerializer.js";
 import { encodeProgramListCursor, decodeProgramListCursor } from "../utils/programCursor.js";
-import { ValidationError, NotFoundError, ConflictError } from "../errors/index.js";
+import {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  NoActiveReferralProgramError,
+} from "../errors/index.js";
 
 /**
  * @param {Record<string, unknown>} body
@@ -18,10 +27,10 @@ function toCreateData(body, actorId) {
     rewardDurationMonths: body.referrerRewardDurationMonths,
     cookieDays: body.cookieDays,
     attributionRule: body.attributionRule,
-    refereeBenefitType: "NONE",
+    refereeBenefitType: body.refereeBenefitType ?? "NONE",
     refereeBenefitValue:
       body.refereeBenefitValue == null ? null : new Decimal(String(body.refereeBenefitValue)),
-    refereeBenefitTrialDays: null,
+    refereeBenefitTrialDays: body.refereeBenefitTrialDays ?? null,
     holdPeriodDays: body.holdPeriodDays,
     monthlyCap: body.monthlyCap == null ? null : new Decimal(String(body.monthlyCap)),
     lifetimeCap: body.lifetimeCap == null ? null : new Decimal(String(body.lifetimeCap)),
@@ -47,6 +56,10 @@ function toUpdateData(body) {
   }
   if (body.cookieDays !== undefined) data.cookieDays = body.cookieDays;
   if (body.attributionRule !== undefined) data.attributionRule = body.attributionRule;
+  if (body.refereeBenefitType !== undefined) data.refereeBenefitType = body.refereeBenefitType;
+  if (body.refereeBenefitTrialDays !== undefined) {
+    data.refereeBenefitTrialDays = body.refereeBenefitTrialDays;
+  }
   if (body.refereeBenefitValue !== undefined) {
     data.refereeBenefitValue =
       body.refereeBenefitValue == null ? null : new Decimal(String(body.refereeBenefitValue));
@@ -100,6 +113,14 @@ async function bumpProgramVersion(tx, programId, patch, actorId, changeReason, a
   });
 
   return updated;
+}
+
+export async function getActiveProgramForUser() {
+  const row = await programRepo.findFirstActive(prisma);
+  if (!row) {
+    throw new NoActiveReferralProgramError();
+  }
+  return { data: programToUserDto(row) };
 }
 
 export async function createProgram(actorId, body) {

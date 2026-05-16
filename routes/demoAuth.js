@@ -11,13 +11,14 @@ const router = Router();
  * /api/v1/auth/demo:
  *   post:
  *     tags: [Auth · Demo]
- *     summary: Passwordless demo user JWT (allowlisted emails only)
+ *     summary: Demo user JWT (allowlisted emails; optional shared password)
  *     description: >
  *       Available only when `DEMO_AUTH_ENABLED=true` and `NODE_ENV` is not `production`,
  *       unless `DEMO_AUTH_ALLOW_PRODUCTION=true`. Mints an HS256 JWT with `USER_JWT_SECRET`
  *       and payload `{ sub, role: "user", email }` (24h exp), compatible with `requireUser`.
  *       Allowlist is the `demo_users` table (`is_enabled=true`); manage rows via admin APIs or SQL.
- *       Unknown or non-allowlisted emails respond with 401. No password field.
+ *       Unknown or non-allowlisted emails respond with 401. When `DEMO_AUTH_PASSWORD` is set,
+ *       the request body must include a matching `password`; otherwise `password` is optional.
  *       On success, also sets an HttpOnly session cookie (default name `doublle_access_token`) with the same JWT;
  *       `requireUser` accepts either that cookie or `Authorization: Bearer` for subsequent requests.
  *     requestBody:

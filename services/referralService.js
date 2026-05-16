@@ -3,12 +3,18 @@ import { prisma } from "../data/prismaClient.js";
 import * as programRepo from "../data/programRepo.js";
 import * as referralTermsAcceptanceRepo from "../data/referralTermsAcceptanceRepo.js";
 import * as referralCodeRepo from "../data/referralCodeRepo.js";
+import * as referralRepo from "../data/referralRepo.js";
 import {
   NoActiveReferralProgramError,
   NotFoundError,
+  ReferralAlreadyAttributedError,
+  SelfReferralError,
   ServiceMisconfiguredError,
 } from "../errors/index.js";
-import { decimalToString } from "./programSerializer.js";
+import { refereeBenefitFromProgram } from "./programSerializer.js";
+import { referralToDto } from "./referralSerializer.js";
+import { getReferrerDashboardSummary } from "./referralDashboardService.js";
+import { evaluateFraudSignalsOnAttribution } from "./fraudSignalService.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 8;
@@ -73,35 +79,6 @@ function dtoFromCode(row, program, publicBase) {
     referralUrl: buildReferralUrl(row.code, publicBase),
     termsVersion: program.termsVersion,
     createdAt: row.createdAt.toISOString(),
-  };
-}
-
-/**
- * @param {import('../generated/prisma/client').Program} program
- */
-function refereeBenefitFromProgram(program) {
-  const type = program.refereeBenefitType;
-  if (type === "CREDIT") {
-    return {
-      type,
-      value: decimalToString(program.refereeBenefitValue),
-      currency: program.currency,
-      trialDays: null,
-    };
-  }
-  if (type === "TRIAL_EXTENSION") {
-    return {
-      type,
-      value: null,
-      currency: program.currency,
-      trialDays: program.refereeBenefitTrialDays,
-    };
-  }
-  return {
-    type: "NONE",
-    value: null,
-    currency: program.currency,
-    trialDays: null,
   };
 }
 
@@ -206,6 +183,8 @@ export async function getMyReferralCodeAndLink(userId) {
     );
   }
 
+  const summary = await getReferrerDashboardSummary(userId, program.id, program.currency);
+
   return {
     data: {
       programId: program.id,
@@ -213,6 +192,7 @@ export async function getMyReferralCodeAndLink(userId) {
       code: row.code,
       referralUrl: buildReferralUrl(row.code, publicBase),
       createdAt: row.createdAt.toISOString(),
+      summary,
     },
   };
 }
@@ -240,4 +220,64 @@ export async function validateReferralCodeForSignup(normalizedCode) {
       refereeBenefit: refereeBenefitFromProgram(program),
     },
   };
+}
+
+/**
+ * Bind a referee to a referrer under the active program (signup / internal attribution).
+ * @param {{
+ *   refereeUserId: string;
+ *   code: string;
+ *   source?: import('../generated/prisma/client').AttributionSource;
+ *   cookieData?: Record<string, unknown> | null;
+ *   ip?: string | null;
+ *   userAgent?: string | null;
+ * }} input Normalized body from validated request.
+ */
+export async function attributeReferral(input) {
+  const program = await programRepo.findFirstActive(prisma);
+  if (!program) {
+    throw new NoActiveReferralProgramError();
+  }
+
+  const referralCode = await referralCodeRepo.findByCode(prisma, input.code);
+  if (!referralCode || referralCode.programId !== program.id) {
+    throw new NotFoundError("Referral code not found.");
+  }
+
+  if (referralCode.ownerUserId === input.refereeUserId) {
+    throw new SelfReferralError();
+  }
+
+  const existing = await referralRepo.findByRefereeAndProgram(
+    prisma,
+    input.refereeUserId,
+    program.id
+  );
+  if (existing) {
+    throw new ReferralAlreadyAttributedError();
+  }
+
+  const attributionSource = input.source ?? "LINK";
+
+  const created = await referralRepo.create(prisma, {
+    refereeUserId: input.refereeUserId,
+    referrerUserId: referralCode.ownerUserId,
+    program: { connect: { id: program.id } },
+    code: referralCode.code,
+    status: "ACTIVE",
+    attributionSource,
+    cookieData: input.cookieData ?? undefined,
+    ip: input.ip ?? undefined,
+    userAgent: input.userAgent ?? undefined,
+    programVersionAtAttribution: program.currentVersion,
+  });
+
+  await evaluateFraudSignalsOnAttribution({
+    referralId: created.id,
+    referrerUserId: referralCode.ownerUserId,
+    programId: program.id,
+    refereeIp: input.ip ?? null,
+  });
+
+  return { data: referralToDto(created) };
 }

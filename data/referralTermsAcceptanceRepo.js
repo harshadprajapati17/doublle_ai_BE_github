@@ -19,3 +19,16 @@ export async function findForUserProgramTerms(client, userId, programId, termsVe
 export async function create(client, data) {
   return client.referralTermsAcceptance.create({ data });
 }
+
+/**
+ * @param {import('../generated/prisma/client').Prisma.TransactionClient | import('../generated/prisma/client').PrismaClient} client
+ * @param {string} userId
+ * @param {string} programId
+ */
+export async function findIpsForUserProgram(client, userId, programId) {
+  const rows = await client.referralTermsAcceptance.findMany({
+    where: { userId, programId },
+    select: { ip: true },
+  });
+  return rows.map((r) => r.ip).filter(Boolean);
+}

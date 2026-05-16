@@ -114,7 +114,7 @@ describe("Referral: POST /api/v1/referral/code/validate", () => {
     prisma.program.findFirst.mockResolvedValue(
       activeProgram({
         refereeBenefitType: "CREDIT",
-        refereeBenefitValue: { toString: () => "15.50" },
+        refereeBenefitValue: { toString: () => "500" },
       })
     );
     prisma.referralCode.findUnique.mockResolvedValue({
@@ -133,7 +133,7 @@ describe("Referral: POST /api/v1/referral/code/validate", () => {
     expect(res.body.data.valid).toBe(true);
     expect(res.body.data.refereeBenefit).toEqual({
       type: "CREDIT",
-      value: "15.50",
+      value: "500",
       currency: "USD",
       trialDays: null,
     });

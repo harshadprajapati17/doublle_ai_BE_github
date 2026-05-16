@@ -7,6 +7,7 @@ export const attributionRuleSchema = z.enum([
   "LAST_TOUCH",
 ]);
 export const capBehaviorSchema = z.enum(["ROLL_FORWARD", "HARD_STOP"]);
+export const refereeBenefitTypeSchema = z.enum(["NONE", "TRIAL_EXTENSION", "CREDIT"]);
 
 const currencySchema = z
   .string()
@@ -33,7 +34,9 @@ export const createProgramSchema = z
     referrerRewardDurationMonths: z.coerce.number().int().min(1).max(240),
     cookieDays: z.coerce.number().int().min(1).max(365),
     attributionRule: attributionRuleSchema,
+    refereeBenefitType: refereeBenefitTypeSchema.default("NONE"),
     refereeBenefitValue: z.coerce.number().nonnegative().nullable(),
+    refereeBenefitTrialDays: z.coerce.number().int().min(1).max(365).nullable().optional(),
     holdPeriodDays: z.coerce.number().int().min(0).max(365),
     monthlyCap: z.coerce.number().nonnegative().nullable().optional(),
     lifetimeCap: z.coerce.number().nonnegative().nullable().optional(),
@@ -41,7 +44,23 @@ export const createProgramSchema = z
     currency: currencySchema.default("USD"),
     termsVersion: z.string().trim().min(1).max(64),
   })
-  .strict();
+  .strict()
+  .superRefine((val, ctx) => {
+    if (val.refereeBenefitType === "TRIAL_EXTENSION" && val.refereeBenefitTrialDays == null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "refereeBenefitTrialDays is required when refereeBenefitType is TRIAL_EXTENSION.",
+        path: ["refereeBenefitTrialDays"],
+      });
+    }
+    if (val.refereeBenefitType === "CREDIT" && val.refereeBenefitValue == null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "refereeBenefitValue is required when refereeBenefitType is CREDIT.",
+        path: ["refereeBenefitValue"],
+      });
+    }
+  });
 
 export const updateProgramSchema = z
   .object({
@@ -50,7 +69,9 @@ export const updateProgramSchema = z
     referrerRewardDurationMonths: z.coerce.number().int().min(1).max(240).optional(),
     cookieDays: z.coerce.number().int().min(1).max(365).optional(),
     attributionRule: attributionRuleSchema.optional(),
+    refereeBenefitType: refereeBenefitTypeSchema.optional(),
     refereeBenefitValue: z.coerce.number().nonnegative().nullable().optional(),
+    refereeBenefitTrialDays: z.coerce.number().int().min(1).max(365).nullable().optional(),
     holdPeriodDays: z.coerce.number().int().min(0).max(365).optional(),
     monthlyCap: z.coerce.number().nonnegative().nullable().optional(),
     lifetimeCap: z.coerce.number().nonnegative().nullable().optional(),
@@ -65,6 +86,21 @@ export const updateProgramSchema = z
         code: "custom",
         message: "At least one field is required for update.",
         path: [],
+      });
+    }
+    const benefitType = val.refereeBenefitType;
+    if (benefitType === "TRIAL_EXTENSION" && val.refereeBenefitTrialDays === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        message: "refereeBenefitTrialDays is required when refereeBenefitType is TRIAL_EXTENSION.",
+        path: ["refereeBenefitTrialDays"],
+      });
+    }
+    if (benefitType === "CREDIT" && val.refereeBenefitValue === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        message: "refereeBenefitValue is required when refereeBenefitType is CREDIT.",
+        path: ["refereeBenefitValue"],
       });
     }
   });

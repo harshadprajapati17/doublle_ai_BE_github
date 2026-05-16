@@ -28,6 +28,15 @@ describe("POST /api/v1/billing/webhooks/razorpay", () => {
     prisma.subscription.findUnique.mockReset();
     prisma.subscription.update.mockReset();
     prisma.subscriptionPayment.upsert.mockReset();
+    prisma.subscriptionPayment.count.mockReset();
+    prisma.referral.findFirst.mockReset();
+    prisma.referral.update.mockReset();
+    prisma.program.findUnique.mockReset();
+    prisma.commission.findUnique.mockReset();
+    prisma.commission.create.mockReset();
+    prisma.commission.findMany.mockReset();
+    prisma.subscriptionPayment.aggregate.mockReset();
+    prisma.commission.findMany.mockResolvedValue([]);
   });
 
   test("returns 200 duplicate when event already processed", async () => {
@@ -164,5 +173,192 @@ describe("POST /api/v1/billing/webhooks/razorpay", () => {
       }),
     });
     expect(prisma.subscription.update).toHaveBeenCalled();
+  });
+
+  test("subscription.charged with captured payment applies referee benefit once", async () => {
+    const paymentRowId = "pay-row-uuid-1";
+    prisma.webhookEvent.findUnique.mockResolvedValue(null);
+    prisma.webhookEvent.create.mockResolvedValue({
+      id: "web-charged",
+      eventId: "evt_charged",
+      processedAt: null,
+    });
+    prisma.webhookEvent.update.mockResolvedValue({});
+    prisma.subscription.findUnique.mockResolvedValue({
+      id: SUB_ROW_ID,
+      userId: "referee-user-1",
+      razorpaySubId: "sub_live_1",
+      currency: "USD",
+    });
+    prisma.subscriptionPayment.upsert.mockResolvedValue({
+      id: paymentRowId,
+      status: "CAPTURED",
+    });
+    prisma.referral.findFirst.mockResolvedValue({
+      id: "ref-1",
+      refereeUserId: "referee-user-1",
+      programId: "prog-1",
+      status: "ACTIVE",
+      refereeCreditApplied: false,
+    });
+    prisma.subscriptionPayment.count.mockResolvedValue(1);
+    prisma.program.findUnique.mockResolvedValue({
+      id: "prog-1",
+      refereeBenefitType: "CREDIT",
+      refereeBenefitValue: { toString: () => "10" },
+      currency: "USD",
+    });
+    prisma.referral.update.mockResolvedValue({});
+    prisma.commission.findUnique.mockResolvedValue(null);
+    prisma.referral.findFirst.mockResolvedValue({
+      id: "ref-1",
+      refereeUserId: "referee-user-1",
+      programId: "prog-1",
+      status: "ACTIVE",
+      refereeCreditApplied: false,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    prisma.program.findUnique.mockResolvedValue({
+      id: "prog-1",
+      refereeBenefitType: "NONE",
+      rewardPct: { toString: () => "5" },
+      holdPeriodDays: 30,
+      refereeMinSpendAmount: null,
+      refereeMinSpendWindowDays: null,
+    });
+    prisma.subscriptionPayment.count.mockResolvedValue(1);
+    prisma.commission.create.mockResolvedValue({ id: "comm-1" });
+
+    const raw = JSON.stringify({
+      id: "evt_charged",
+      event: "subscription.charged",
+      payload: {
+        subscription: { entity: { id: "sub_live_1", status: "active" } },
+        payment: {
+          entity: {
+            id: "pay_live_1",
+            subscription_id: "sub_live_1",
+            amount: 99900,
+            currency: "inr",
+            status: "captured",
+            created_at: 1704067200,
+          },
+        },
+      },
+    });
+    const { sig } = signRazorpayBody(raw);
+
+    const res = await request(app)
+      .post("/api/v1/billing/webhooks/razorpay")
+      .set("X-Razorpay-Signature", sig)
+      .set("Content-Type", "application/json")
+      .send(raw);
+
+    expect(res.statusCode).toBe(200);
+    expect(prisma.referral.update).toHaveBeenCalledWith({
+      where: { id: "ref-1" },
+      data: expect.objectContaining({ refereeCreditApplied: true }),
+    });
+    expect(prisma.commission.create).toHaveBeenCalledTimes(1);
+  });
+
+  test("payment.captured replay does not double-accrue commission", async () => {
+    prisma.webhookEvent.findUnique.mockResolvedValue(null);
+    prisma.webhookEvent.create.mockResolvedValue({
+      id: "web-comm-dup",
+      eventId: "evt_comm_dup",
+      processedAt: null,
+    });
+    prisma.webhookEvent.update.mockResolvedValue({});
+    prisma.subscription.findUnique.mockResolvedValue({
+      id: SUB_ROW_ID,
+      userId: "referee-user-1",
+      razorpaySubId: "sub_live_1",
+      currency: "USD",
+    });
+    prisma.subscriptionPayment.upsert.mockResolvedValue({
+      id: "pay-row-uuid-1",
+      status: "CAPTURED",
+      amountMinor: 99900,
+      currency: "USD",
+    });
+    prisma.commission.findUnique.mockResolvedValue({ id: "comm-existing" });
+    prisma.referral.findFirst.mockResolvedValue(null);
+
+    const raw = JSON.stringify({
+      id: "evt_comm_dup",
+      event: "payment.captured",
+      payload: {
+        payment: {
+          entity: {
+            id: "pay_live_1",
+            subscription_id: "sub_live_1",
+            amount: 99900,
+            currency: "inr",
+            status: "captured",
+            created_at: 1704067200,
+          },
+        },
+      },
+    });
+    const { sig } = signRazorpayBody(raw);
+
+    const res = await request(app)
+      .post("/api/v1/billing/webhooks/razorpay")
+      .set("X-Razorpay-Signature", sig)
+      .set("Content-Type", "application/json")
+      .send(raw);
+
+    expect(res.statusCode).toBe(200);
+    expect(prisma.commission.create).not.toHaveBeenCalled();
+  });
+
+  test("payment.captured replay does not double-apply referee benefit", async () => {
+    prisma.webhookEvent.findUnique.mockResolvedValue(null);
+    prisma.webhookEvent.create.mockResolvedValue({
+      id: "web-replay",
+      eventId: "evt_replay",
+      processedAt: null,
+    });
+    prisma.webhookEvent.update.mockResolvedValue({});
+    prisma.subscription.findUnique.mockResolvedValue({
+      id: SUB_ROW_ID,
+      userId: "referee-user-1",
+      razorpaySubId: "sub_live_1",
+      currency: "USD",
+    });
+    prisma.subscriptionPayment.upsert.mockResolvedValue({
+      id: "pay-row-uuid-1",
+      status: "CAPTURED",
+    });
+    prisma.referral.findFirst.mockResolvedValue(null);
+
+    const raw = JSON.stringify({
+      id: "evt_replay",
+      event: "payment.captured",
+      payload: {
+        payment: {
+          entity: {
+            id: "pay_live_1",
+            subscription_id: "sub_live_1",
+            amount: 99900,
+            currency: "inr",
+            status: "captured",
+            created_at: 1704067200,
+          },
+        },
+      },
+    });
+    const { sig } = signRazorpayBody(raw);
+
+    const res = await request(app)
+      .post("/api/v1/billing/webhooks/razorpay")
+      .set("X-Razorpay-Signature", sig)
+      .set("Content-Type", "application/json")
+      .send(raw);
+
+    expect(res.statusCode).toBe(200);
+    expect(prisma.referral.update).not.toHaveBeenCalled();
+    expect(prisma.subscriptionPayment.count).not.toHaveBeenCalled();
   });
 });

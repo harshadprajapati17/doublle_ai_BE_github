@@ -24,7 +24,7 @@ const options = {
           scheme: "bearer",
           bearerFormat: "JWT",
           description:
-            'Admin HS256 JWT. Payload must include role="admin" and sub=adminId. Signed with ADMIN_JWT_SECRET, ADMIN_JWT_SECRET_2, or ADMIN_JWT_SECRET_3 (when set).',
+            'Admin HS256 JWT. Payload must include role="admin" and sub=adminId. Signed with ADMIN_JWT_SECRET, ADMIN_JWT_SECRET_2, or ADMIN_JWT_SECRET_3 (when set). Alternatively, the same JWT may be sent in the HttpOnly `doublle_admin_access_token` cookie (name overridable with ADMIN_ACCESS_TOKEN_COOKIE_NAME) after POST /api/v1/auth/demo-admin.',
         },
         userBearerAuth: {
           type: "http",
@@ -56,6 +56,11 @@ const options = {
           required: ["email"],
           properties: {
             email: { type: "string", format: "email", example: "testuser1@test.com" },
+            password: {
+              type: "string",
+              description:
+                "Required when `DEMO_AUTH_PASSWORD` is set; ignored otherwise.",
+            },
           },
           example: { email: "testuser1@test.com" },
         },
@@ -109,6 +114,41 @@ const options = {
             isEnabled: { type: "boolean" },
           },
         },
+        DemoAdmin: {
+          type: "object",
+          required: ["id", "sub", "email", "isEnabled", "createdAt", "updatedAt"],
+          properties: {
+            id: { type: "string", format: "uuid" },
+            sub: { type: "string", example: "demo-admin-1" },
+            email: { type: "string", format: "email", example: "admin1@test.com" },
+            name: { type: "string", nullable: true },
+            isEnabled: { type: "boolean" },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        DemoAdminCreate: {
+          type: "object",
+          additionalProperties: false,
+          required: ["sub", "email"],
+          example: { sub: "demo-admin-1", email: "admin1@test.com", name: "Demo Admin" },
+          properties: {
+            sub: { type: "string", minLength: 1, maxLength: 256 },
+            email: { type: "string", format: "email" },
+            name: { type: "string", minLength: 1, maxLength: 200 },
+          },
+        },
+        DemoAdminPatch: {
+          type: "object",
+          additionalProperties: false,
+          example: { isEnabled: false },
+          properties: {
+            sub: { type: "string", minLength: 1, maxLength: 256 },
+            email: { type: "string", format: "email" },
+            name: { type: "string", nullable: true, minLength: 1, maxLength: 200 },
+            isEnabled: { type: "boolean" },
+          },
+        },
         ProgramStatus: {
           type: "string",
           enum: ["DRAFT", "ACTIVE", "DISABLED"],
@@ -121,6 +161,10 @@ const options = {
           type: "string",
           enum: ["ROLL_FORWARD", "HARD_STOP"],
         },
+        RefereeBenefitType: {
+          type: "string",
+          enum: ["NONE", "TRIAL_EXTENSION", "CREDIT"],
+        },
         Program: {
           type: "object",
           example: {
@@ -131,7 +175,9 @@ const options = {
             referrerRewardDurationMonths: 12,
             cookieDays: 30,
             attributionRule: "FIRST_TOUCH_CODE_OVERRIDE",
+            refereeBenefitType: "NONE",
             refereeBenefitValue: null,
+            refereeBenefitTrialDays: null,
             holdPeriodDays: 30,
             monthlyCap: null,
             lifetimeCap: null,
@@ -151,7 +197,9 @@ const options = {
             referrerRewardDurationMonths: { type: "integer", example: 12 },
             cookieDays: { type: "integer", example: 30 },
             attributionRule: { $ref: "#/components/schemas/AttributionRule" },
+            refereeBenefitType: { $ref: "#/components/schemas/RefereeBenefitType" },
             refereeBenefitValue: { type: "number", nullable: true },
+            refereeBenefitTrialDays: { type: "integer", nullable: true },
             holdPeriodDays: { type: "integer", example: 30 },
             monthlyCap: { type: "number", nullable: true },
             lifetimeCap: { type: "number", nullable: true },
@@ -164,6 +212,45 @@ const options = {
             disabledAt: { type: "string", format: "date-time", nullable: true },
           },
         },
+        ReferralProgram: {
+          type: "object",
+          description:
+            "Active referral program as returned to authenticated users (no admin-only fields).",
+          properties: {
+            id: { type: "string", format: "uuid" },
+            name: { type: "string" },
+            status: { $ref: "#/components/schemas/ProgramStatus" },
+            referrerRewardPct: { type: "string", example: "5" },
+            referrerRewardDurationMonths: { type: "integer", example: 12 },
+            cookieDays: { type: "integer", example: 30 },
+            attributionRule: { $ref: "#/components/schemas/AttributionRule" },
+            refereeBenefitType: { $ref: "#/components/schemas/RefereeBenefitType" },
+            refereeBenefitValue: { type: "string", nullable: true },
+            refereeBenefitTrialDays: { type: "integer", nullable: true },
+            holdPeriodDays: { type: "integer", example: 30 },
+            monthlyCap: { type: "string", nullable: true },
+            lifetimeCap: { type: "string", nullable: true },
+            capBehavior: { $ref: "#/components/schemas/CapBehavior" },
+            currency: { type: "string", example: "USD" },
+            termsVersion: { type: "string", example: "v1" },
+            currentVersion: { type: "integer", example: 1 },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+            disabledAt: { type: "string", format: "date-time", nullable: true },
+            refereeBenefit: {
+              type: "object",
+              properties: {
+                type: {
+                  type: "string",
+                  enum: ["NONE", "TRIAL_EXTENSION", "CREDIT"],
+                },
+                value: { type: "string", nullable: true },
+                currency: { type: "string" },
+                trialDays: { type: "integer", nullable: true },
+              },
+            },
+          },
+        },
         ProgramCreate: {
           type: "object",
           example: {
@@ -172,6 +259,7 @@ const options = {
             referrerRewardDurationMonths: 12,
             cookieDays: 30,
             attributionRule: "FIRST_TOUCH_CODE_OVERRIDE",
+            refereeBenefitType: "NONE",
             refereeBenefitValue: null,
             holdPeriodDays: 30,
             capBehavior: "ROLL_FORWARD",
@@ -199,7 +287,17 @@ const options = {
             },
             cookieDays: { type: "integer", minimum: 1, maximum: 365 },
             attributionRule: { $ref: "#/components/schemas/AttributionRule" },
+            refereeBenefitType: {
+              $ref: "#/components/schemas/RefereeBenefitType",
+              default: "NONE",
+            },
             refereeBenefitValue: { type: "number", minimum: 0, nullable: true },
+            refereeBenefitTrialDays: {
+              type: "integer",
+              minimum: 1,
+              maximum: 365,
+              nullable: true,
+            },
             holdPeriodDays: { type: "integer", minimum: 0, maximum: 365 },
             monthlyCap: { type: "number", minimum: 0, nullable: true },
             lifetimeCap: { type: "number", minimum: 0, nullable: true },
@@ -231,7 +329,14 @@ const options = {
             },
             cookieDays: { type: "integer", minimum: 1, maximum: 365 },
             attributionRule: { $ref: "#/components/schemas/AttributionRule" },
+            refereeBenefitType: { $ref: "#/components/schemas/RefereeBenefitType" },
             refereeBenefitValue: { type: "number", minimum: 0, nullable: true },
+            refereeBenefitTrialDays: {
+              type: "integer",
+              minimum: 1,
+              maximum: 365,
+              nullable: true,
+            },
             holdPeriodDays: { type: "integer", minimum: 0, maximum: 365 },
             monthlyCap: { type: "number", minimum: 0, nullable: true },
             lifetimeCap: { type: "number", minimum: 0, nullable: true },
@@ -361,14 +466,19 @@ const options = {
           "CRUD for `demo_users` rows used by passwordless demo login when `DEMO_AUTH_ENABLED` is on.",
       },
       {
+        name: "Admin · Demo admins",
+        description:
+          "CRUD for `demo_admins` rows used by passwordless demo admin login when `DEMO_AUTH_ENABLED` is on.",
+      },
+      {
         name: "Referral",
         description:
-          "Referral program: public signup-time code validation; authenticated link, terms, and stats",
+          "Referral program: signup-time code validation and attribution; authenticated link, terms, and stats",
       },
       {
         name: "Auth · Demo",
         description:
-          "Optional passwordless JWT mint for demo users in `demo_users` (`DEMO_AUTH_ENABLED`). Not mounted in production unless `DEMO_AUTH_ALLOW_PRODUCTION=true`.",
+          "Optional passwordless JWT mint for demo users (`demo_users`) and demo admins (`demo_admins`) when `DEMO_AUTH_ENABLED` is on. Not mounted in production unless `DEMO_AUTH_ALLOW_PRODUCTION=true`.",
       },
     ],
   },

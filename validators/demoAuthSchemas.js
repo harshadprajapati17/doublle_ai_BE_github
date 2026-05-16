@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Passwordless demo login: allowlisted email only (no password field). */
+/** Demo login: allowlisted email; optional password when `DEMO_AUTH_PASSWORD` is set. */
 export const demoLoginBodySchema = z
   .object({
     email: z
@@ -8,5 +8,6 @@ export const demoLoginBodySchema = z
       .trim()
       .toLowerCase()
       .pipe(z.email({ error: "Invalid email address." })),
+    password: z.string().optional(),
   })
   .strict();

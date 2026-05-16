@@ -21,3 +21,29 @@ export const referralValidateCodeBodySchema = z
       .pipe(z.string().regex(REFERRAL_CODE_PATTERN, "Invalid referral code format.")),
   })
   .strict();
+
+const ATTRIBUTION_SOURCE_VALUES = ["LINK", "MANUAL_CODE", "COOKIE", "BOTH"];
+
+/**
+ * Authenticated attribution: bind the signed-in user (referee) to a referrer under the active program.
+ */
+export const referralAttributeBodySchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .transform((s) => s.toUpperCase())
+      .pipe(z.string().regex(REFERRAL_CODE_PATTERN, "Invalid referral code format.")),
+    source: z.enum(ATTRIBUTION_SOURCE_VALUES).optional(),
+    cookieData: z.record(z.string(), z.unknown()).optional().nullable(),
+    ip: z.string().trim().max(45).optional().nullable(),
+    userAgent: z.string().max(2048).optional().nullable(),
+  })
+  .strict();
+
+export const referralDashboardListQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    cursor: z.string().min(1).max(2048).optional(),
+  })
+  .strict();

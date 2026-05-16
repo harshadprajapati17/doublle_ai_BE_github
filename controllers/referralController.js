@@ -1,5 +1,11 @@
+import { getActiveProgramForUser } from "../services/programService.js";
+import {
+  listReferrerReferees,
+  listReferrerTransactions,
+} from "../services/referralDashboardService.js";
 import {
   acceptReferralTermsAndGenerateLink,
+  attributeReferral,
   getMyReferralCodeAndLink,
   validateReferralCodeForSignup,
 } from "../services/referralService.js";
@@ -17,7 +23,34 @@ export async function getReferralMe(req, res) {
   res.status(200).json(result);
 }
 
+export async function getReferralMeReferees(req, res) {
+  const result = await listReferrerReferees(req.user.id, req.query);
+  res.status(200).json(result);
+}
+
+export async function getReferralMeTransactions(req, res) {
+  const result = await listReferrerTransactions(req.user.id, req.query);
+  res.status(200).json(result);
+}
+
+export async function getActiveReferralProgram(req, res) {
+  const result = await getActiveProgramForUser();
+  res.status(200).json(result);
+}
+
 export async function postValidateReferralCode(req, res) {
   const result = await validateReferralCodeForSignup(req.body.code);
   res.status(200).json(result);
+}
+
+export async function postAttributeReferral(req, res) {
+  const result = await attributeReferral({
+    refereeUserId: req.user.id,
+    code: req.body.code,
+    source: req.body.source,
+    cookieData: req.body.cookieData,
+    ip: req.body.ip,
+    userAgent: req.body.userAgent,
+  });
+  res.status(201).json(result);
 }
