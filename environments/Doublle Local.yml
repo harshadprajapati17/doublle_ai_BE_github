@@ -1,0 +1,8 @@
+name: Doublle Local
+variables:
+  - name: base_url
+    value: http://localhost:5001
+  - name: token_admin
+    value: ""
+  - name: token_user
+    value: ""

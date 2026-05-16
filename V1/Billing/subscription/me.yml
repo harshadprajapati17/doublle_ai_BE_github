@@ -1,0 +1,20 @@
+info:
+  name: me
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{base_url}}/api/v1/billing/subscriptions/me"
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXVzZXItMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzc4NzM1MzkyLCJleHAiOjE3NzkzNDAxOTJ9.EUIjoDP9x_m_JSCyyPBZn2UJbJrw9KhXAoMmXp_D81w
+    - name: Content-Type
+      value: application/json
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

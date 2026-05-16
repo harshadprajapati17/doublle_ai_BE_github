@@ -1,0 +1,27 @@
+info:
+  name: referral/attribute
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: http://localhost:5001/api/v1/referral/attribute
+  headers:
+    - name: Authorization
+      value: Bearer {{token_user}}
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "code": "MRTAE6WW",
+        "source": "LINK"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
