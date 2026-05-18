@@ -346,6 +346,7 @@ model DemoUser {
   id        String   @id @default(uuid()) @db.Uuid
   sub       String   @unique @db.VarChar(256)
   email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
   name      String?  @db.VarChar(200)
   isEnabled Boolean  @default(true) @map("is_enabled")
   createdAt DateTime @default(now()) @map("created_at")
@@ -359,6 +360,7 @@ model DemoAdmin {
   id        String   @id @default(uuid()) @db.Uuid
   sub       String   @unique @db.VarChar(256)
   email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
   name      String?  @db.VarChar(200)
   isEnabled Boolean  @default(true) @map("is_enabled")
   createdAt DateTime @default(now()) @map("created_at")

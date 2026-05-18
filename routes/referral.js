@@ -11,6 +11,7 @@ import {
 import {
   getActiveReferralProgram,
   getReferralMe,
+  getReferralMeDashboard,
   getReferralMeReferees,
   getReferralMeTransactions,
   postAcceptReferralTerms,
@@ -210,6 +211,38 @@ router.post(
 
 /**
  * @openapi
+ * /api/v1/referral/me/dashboard:
+ *   get:
+ *     tags: [Referral]
+ *     summary: Referrer dashboard (single payload)
+ *     description: >
+ *       Returns referral code, aggregate summary, and paginated referees each with profile (email/name),
+ *       payment status (captured subscription payments), commission totals, and commission line items.
+ *     security:
+ *       - userBearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+ *       - in: query
+ *         name: cursor
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Dashboard payload.
+ *       401: { description: Unauthenticated, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+ *       404:
+ *         description: No active program or referrer has no referral code yet.
+ *         content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+ */
+router.get(
+  "/me/dashboard",
+  validateRequest({ query: referralDashboardListQuerySchema }),
+  asyncHandler(getReferralMeDashboard)
+);
+
+/**
+ * @openapi
  * /api/v1/referral/me/referees:
  *   get:
  *     tags: [Referral]
@@ -225,7 +258,9 @@ router.post(
  *         schema: { type: string }
  *     responses:
  *       200:
- *         description: Referee rows with per-referee commission totals.
+ *         description: >
+ *           Referee rows with per-referee commission totals, program `refereeBenefit` (e.g. CREDIT 500),
+ *           and `refereeCreditApplied` / `refereeCreditAppliedAt` after first captured payment.
  *       401: { description: Unauthenticated, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       404: { description: No active referral program, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
@@ -267,16 +302,15 @@ router.get(
  * /api/v1/referral/me:
  *   get:
  *     tags: [Referral]
- *     summary: Referral code, link, and dashboard summary for the active program
+ *     summary: Referral code and dashboard summary for the active program
  *     security:
  *       - userBearerAuth: []
  *     responses:
  *       200:
- *         description: Referral code, URL, and aggregate stats (referee count, commission totals).
+ *         description: Referral code and aggregate stats (referee count, commission totals).
  *       401: { description: Unauthenticated, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       403: { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       404: { description: No active program or user has no referral code yet, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
- *       503: { description: Server misconfiguration (REFERRAL_PUBLIC_BASE_URL), content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.get("/me", asyncHandler(getReferralMe));
 
@@ -285,7 +319,7 @@ router.get("/me", asyncHandler(getReferralMe));
  * /api/v1/referral/terms/accept:
  *   post:
  *     tags: [Referral]
- *     summary: Accept active referral program terms and return referral link/code (FR-3, single call)
+ *     summary: Accept active referral program terms and return referral code (FR-3, single call)
  *     security:
  *       - userBearerAuth: []
  *     requestBody:
@@ -297,9 +331,9 @@ router.get("/me", asyncHandler(getReferralMe));
  *             additionalProperties: false
  *     responses:
  *       200:
- *         description: Terms were already accepted; link/code returned (existing or newly allocated code).
+ *         description: Terms were already accepted; code returned (existing or newly allocated).
  *       201:
- *         description: Terms acceptance recorded; link/code returned (existing or newly allocated code).
+ *         description: Terms acceptance recorded; code returned (existing or newly allocated).
  *       401: { description: Unauthenticated, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       403: { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  *       404:

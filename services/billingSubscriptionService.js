@@ -16,6 +16,7 @@ import { mapRazorpaySubscriptionStatus } from "../utils/billingRzpMappers.js";
 import { parseRazorpayTimestamp } from "../utils/razorpayTimestamps.js";
 import { subscriptionStandardCheckoutHints } from "../utils/billingCheckoutHints.js";
 import { subscriptionUpdateInputFromRzpEntity } from "../utils/subscriptionUpdateInputFromRzpEntity.js";
+import { getRefereeBenefitStatusForUser } from "./refereeBenefitViewService.js";
 
 /** @typedef {import("../generated/prisma/client.ts").BillingFrequency} BillingFrequency */
 
@@ -230,11 +231,12 @@ export async function createSubscriptionForUser(input) {
  * @param {string} userId
  */
 export async function getMySubscription(userId) {
+  const refereeBenefit = await getRefereeBenefitStatusForUser(userId);
   const open = await findOpenSubscriptionForUser(userId);
   const reconciled = open ? await reconcileSubscriptionFromRazorpay(open) : null;
   const sub = reconciled ?? (await findLatestSubscriptionForUser(userId));
   if (!sub) {
-    return { data: { subscription: null } };
+    return { data: { subscription: null, refereeBenefit } };
   }
   const subscription = toSubscriptionDto(sub);
   const checkout = subscriptionStandardCheckoutHints(subscription.razorpaySubscriptionId, subscription.status);
@@ -242,6 +244,7 @@ export async function getMySubscription(userId) {
     data: {
       subscription,
       ...(checkout ? { checkout } : {}),
+      refereeBenefit,
     },
   };
 }

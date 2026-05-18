@@ -73,6 +73,15 @@ const prisma = {
     upsert: jest.fn(),
     count: jest.fn(),
     aggregate: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+  },
+  demoUser: {
+    findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   },
   commission: {
     findUnique: jest.fn(),
@@ -87,14 +96,6 @@ const prisma = {
     create: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
-  },
-  demoUser: {
-    findFirst: jest.fn(),
-    findMany: jest.fn().mockResolvedValue([]),
-    findUnique: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
   },
   demoAdmin: {
     findFirst: jest.fn(),

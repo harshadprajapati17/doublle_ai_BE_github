@@ -41,7 +41,7 @@ describe("Referral: POST /api/v1/referral/terms/accept", () => {
     prisma.referralCode.create.mockReset();
   });
 
-  test("accept returns 201, records acceptance, and allocates code + URL", async () => {
+  test("accept returns 201, records acceptance, and allocates code", async () => {
     prisma.program.findFirst.mockResolvedValue(activeProgram());
     prisma.referralTermsAcceptance.findUnique.mockResolvedValue(null);
     prisma.referralTermsAcceptance.create.mockResolvedValue({
@@ -67,18 +67,14 @@ describe("Referral: POST /api/v1/referral/terms/accept", () => {
       .set("X-Forwarded-For", "203.0.113.9")
       .send({});
 
-    const base = process.env.REFERRAL_PUBLIC_BASE_URL.replace(/\/$/, "");
-    const expectedUrl = new URL(base);
-    expectedUrl.searchParams.set("ref", "ABCD2345");
-
     expect(res.statusCode).toBe(201);
     expect(res.body.data).toMatchObject({
       programId: PROGRAM_ID,
       termsVersion: "v1",
       idempotent: false,
       code: "ABCD2345",
-      referralUrl: expectedUrl.toString(),
     });
+    expect(res.body.data).not.toHaveProperty("referralUrl");
     expect(res.body.data.acceptedAt).toBe("2026-01-15T12:00:01.000Z");
     expect(res.body.data.createdAt).toBe("2026-01-15T12:05:00.000Z");
     expect(prisma.referralTermsAcceptance.create).toHaveBeenCalledWith({
@@ -92,7 +88,7 @@ describe("Referral: POST /api/v1/referral/terms/accept", () => {
     expect(prisma.referralCode.create).toHaveBeenCalledTimes(1);
   });
 
-  test("accept returns 200 when already accepted and returns existing link fields", async () => {
+  test("accept returns 200 when already accepted and returns existing code fields", async () => {
     prisma.program.findFirst.mockResolvedValue(activeProgram());
     prisma.referralTermsAcceptance.findUnique.mockResolvedValue({
       id: ACCEPT_ID,
@@ -116,17 +112,13 @@ describe("Referral: POST /api/v1/referral/terms/accept", () => {
       .set("Authorization", `Bearer ${userToken()}`)
       .send({});
 
-    const base = process.env.REFERRAL_PUBLIC_BASE_URL.replace(/\/$/, "");
-    const expectedUrl = new URL(base);
-    expectedUrl.searchParams.set("ref", "ZZZZ9999");
-
     expect(res.statusCode).toBe(200);
     expect(res.body.data).toMatchObject({
       idempotent: true,
       termsVersion: "v1",
       code: "ZZZZ9999",
-      referralUrl: expectedUrl.toString(),
     });
+    expect(res.body.data).not.toHaveProperty("referralUrl");
     expect(res.body.data.acceptedAt).toBe("2026-01-10T08:00:00.000Z");
     expect(res.body.data.createdAt).toBe("2026-01-01T00:00:00.000Z");
     expect(prisma.referralTermsAcceptance.create).not.toHaveBeenCalled();
@@ -157,35 +149,14 @@ describe("Referral: POST /api/v1/referral/terms/accept", () => {
       .set("Authorization", `Bearer ${userToken()}`)
       .send({});
 
-    const base = process.env.REFERRAL_PUBLIC_BASE_URL.replace(/\/$/, "");
-    const expectedUrl = new URL(base);
-    expectedUrl.searchParams.set("ref", "NEWCODE1");
-
     expect(res.statusCode).toBe(200);
     expect(res.body.data).toMatchObject({
       idempotent: true,
       code: "NEWCODE1",
-      referralUrl: expectedUrl.toString(),
     });
+    expect(res.body.data).not.toHaveProperty("referralUrl");
     expect(prisma.referralTermsAcceptance.create).not.toHaveBeenCalled();
     expect(prisma.referralCode.create).toHaveBeenCalledTimes(1);
-  });
-
-  test("accept returns 503 when REFERRAL_PUBLIC_BASE_URL is unset", async () => {
-    const prev = process.env.REFERRAL_PUBLIC_BASE_URL;
-    delete process.env.REFERRAL_PUBLIC_BASE_URL;
-    try {
-      const res = await request(app)
-        .post("/api/v1/referral/terms/accept")
-        .set("Authorization", `Bearer ${userToken()}`)
-        .send({});
-
-      expect(res.statusCode).toBe(503);
-      expect(res.body.error?.code).toBe("SERVICE_MISCONFIGURED");
-      expect(prisma.program.findFirst).not.toHaveBeenCalled();
-    } finally {
-      process.env.REFERRAL_PUBLIC_BASE_URL = prev;
-    }
   });
 
   test("rejects unknown JSON fields on accept", async () => {
@@ -207,7 +178,7 @@ describe("Referral: GET /api/v1/referral/me", () => {
     prisma.referralCode.create.mockReset();
   });
 
-  test("returns 200 with code and referralUrl when user has a code", async () => {
+  test("returns 200 with code when user has a code", async () => {
     prisma.program.findFirst.mockResolvedValue(activeProgram());
     prisma.referralCode.findUnique.mockResolvedValue({
       id: CODE_ID,
@@ -221,17 +192,13 @@ describe("Referral: GET /api/v1/referral/me", () => {
       .get("/api/v1/referral/me")
       .set("Authorization", `Bearer ${userToken()}`);
 
-    const base = process.env.REFERRAL_PUBLIC_BASE_URL.replace(/\/$/, "");
-    const expectedUrl = new URL(base);
-    expectedUrl.searchParams.set("ref", "MECODE12");
-
     expect(res.statusCode).toBe(200);
     expect(res.body.data).toMatchObject({
       programId: PROGRAM_ID,
       termsVersion: "v1",
       code: "MECODE12",
-      referralUrl: expectedUrl.toString(),
     });
+    expect(res.body.data).not.toHaveProperty("referralUrl");
     expect(res.body.data.createdAt).toBe("2026-01-10T08:00:00.000Z");
     expect(prisma.referralCode.create).not.toHaveBeenCalled();
   });
@@ -257,21 +224,5 @@ describe("Referral: GET /api/v1/referral/me", () => {
 
     expect(res.statusCode).toBe(404);
     expect(res.body.error?.code).toBe("NO_ACTIVE_REFERRAL_PROGRAM");
-  });
-
-  test("returns 503 when REFERRAL_PUBLIC_BASE_URL is unset", async () => {
-    const prev = process.env.REFERRAL_PUBLIC_BASE_URL;
-    delete process.env.REFERRAL_PUBLIC_BASE_URL;
-    try {
-      const res = await request(app)
-        .get("/api/v1/referral/me")
-        .set("Authorization", `Bearer ${userToken()}`);
-
-      expect(res.statusCode).toBe(503);
-      expect(res.body.error?.code).toBe("SERVICE_MISCONFIGURED");
-      expect(prisma.program.findFirst).not.toHaveBeenCalled();
-    } finally {
-      process.env.REFERRAL_PUBLIC_BASE_URL = prev;
-    }
   });
 });

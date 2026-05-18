@@ -1,12 +1,7 @@
 import { parse as parseCookieHeader } from "cookie";
 import { adminAccessTokenCookieName } from "../config/adminAccessTokenCookie.js";
 import { UnauthorizedError, ForbiddenError } from "../errors/index.js";
-import {
-  secretsFromEnv,
-  verifyJwtHs256WithSecrets,
-} from "../utils/verifyJwtHs256WithSecrets.js";
-
-const ADMIN_JWT_ENV_NAMES = ["ADMIN_JWT_SECRET", "ADMIN_JWT_SECRET_2", "ADMIN_JWT_SECRET_3"];
+import jwt from "jsonwebtoken";
 
 /**
  * Resolves admin JWT from `Authorization: Bearer` (preferred) or from the HttpOnly access-token cookie.
@@ -41,19 +36,17 @@ export function resolveAdminJwtFromRequest(req) {
 
 /**
  * Verifies HS256 Bearer JWT. Requires payload.role === "admin" and sub (actor id).
- * Accepts `Authorization: Bearer <jwt>` or the HttpOnly cookie set by POST /api/v1/auth/demo-admin.
- * Tokens may be signed with ADMIN_JWT_SECRET, ADMIN_JWT_SECRET_2, or ADMIN_JWT_SECRET_3 when set (demo / multi-issuer).
+ * Accepts `Authorization: Bearer <jwt>` or the HttpOnly cookie set by POST /api/v1/auth/admin-signin-referral.
  */
 export function requireAdmin(req, res, next) {
-  const primary = process.env.ADMIN_JWT_SECRET;
-  if (!primary || primary.trim() === "") {
+  const secret = process.env.ADMIN_JWT_SECRET;
+  if (!secret || secret.trim() === "") {
     return next(
       new Error(
         "ADMIN_JWT_SECRET is not configured. Set ADMIN_JWT_SECRET in environment variables."
       )
     );
   }
-  const secrets = secretsFromEnv(ADMIN_JWT_ENV_NAMES);
 
   const token = resolveAdminJwtFromRequest(req);
   if (!token) {
@@ -65,7 +58,7 @@ export function requireAdmin(req, res, next) {
   }
 
   try {
-    const payload = verifyJwtHs256WithSecrets(token, secrets);
+    const payload = jwt.verify(token, secret.trim(), { algorithms: ["HS256"] });
     if (!payload || typeof payload !== "object") {
       return next(new UnauthorizedError("Invalid token payload."));
     }

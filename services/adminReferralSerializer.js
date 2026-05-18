@@ -1,13 +1,51 @@
 import { decimalToString } from "./programSerializer.js";
+import { paymentStatusToDto } from "./referralDashboardSerializer.js";
+
+/**
+ * @typedef {{ email: string; name: string | null } | null} AdminUserProfile
+ * @typedef {{ capturedCount: number; firstCapturedAt: Date | null; totalAmountMinor: number; currency: string | null } | undefined} CapturedPaymentSummary
+ */
+
+/**
+ * @param {CapturedPaymentSummary} paymentSummary
+ * @param {string} programCurrency
+ */
+export function refereePaymentToAdminDto(paymentSummary, programCurrency) {
+  return paymentStatusToDto(paymentSummary, programCurrency);
+}
+
+/**
+ * @param {string} userId
+ * @param {AdminUserProfile} profile
+ */
+export function userProfileToAdminDto(userId, profile) {
+  return {
+    userId,
+    email: profile?.email ?? null,
+    name: profile?.name ?? null,
+  };
+}
 
 /**
  * @param {import('../generated/prisma/client').Referral} row
+ * @param {{
+ *   referrer?: AdminUserProfile;
+ *   referee?: AdminUserProfile;
+ *   paymentSummary?: CapturedPaymentSummary;
+ *   programCurrency?: string;
+ * }} [enrichment]
  */
-export function referralToAdminDto(row) {
+export function referralToAdminDto(row, enrichment) {
   return {
     id: row.id,
     refereeUserId: row.refereeUserId,
     referrerUserId: row.referrerUserId,
+    referrer: userProfileToAdminDto(row.referrerUserId, enrichment?.referrer ?? null),
+    referee: userProfileToAdminDto(row.refereeUserId, enrichment?.referee ?? null),
+    payment: refereePaymentToAdminDto(
+      enrichment?.paymentSummary,
+      enrichment?.programCurrency ?? ""
+    ),
     programId: row.programId,
     code: row.code,
     status: row.status,
@@ -71,10 +109,19 @@ export function fraudSignalToAdminDto(row) {
  *   commissions: import('../generated/prisma/client').Commission[];
  *   fraudSignals: import('../generated/prisma/client').FraudSignal[];
  * }} row
+ * @param {{
+ *   referrer?: AdminUserProfile;
+ *   referee?: AdminUserProfile;
+ *   paymentSummary?: CapturedPaymentSummary;
+ *   programCurrency?: string;
+ * }} [enrichment]
  */
-export function referralDetailToAdminDto(row) {
+export function referralDetailToAdminDto(row, enrichment) {
   return {
-    referral: referralToAdminDto(row),
+    referral: referralToAdminDto(row, {
+      ...enrichment,
+      programCurrency: enrichment?.programCurrency ?? row.program.currency,
+    }),
     program: {
       id: row.program.id,
       name: row.program.name,

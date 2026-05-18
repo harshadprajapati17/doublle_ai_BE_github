@@ -262,6 +262,60 @@ describe("POST /api/v1/billing/webhooks/razorpay", () => {
     expect(prisma.commission.create).toHaveBeenCalledTimes(1);
   });
 
+  test("subscription.charged syncs payment when subscription_id only on subscription block", async () => {
+    prisma.webhookEvent.findUnique.mockResolvedValue(null);
+    prisma.webhookEvent.create.mockResolvedValue({
+      id: "web-charged-no-sub-on-pay",
+      eventId: "evt_charged_no_sub_on_pay",
+      processedAt: null,
+    });
+    prisma.webhookEvent.update.mockResolvedValue({});
+    prisma.subscription.findUnique.mockResolvedValue({
+      id: SUB_ROW_ID,
+      userId: "referee-user-1",
+      razorpaySubId: "sub_live_1",
+      currency: "USD",
+    });
+    prisma.subscriptionPayment.upsert.mockResolvedValue({
+      id: "pay-row-uuid-2",
+      status: "CAPTURED",
+      amountMinor: 99900,
+      currency: "USD",
+    });
+    prisma.commission.findUnique.mockResolvedValue(null);
+    prisma.referral.findFirst.mockResolvedValue(null);
+
+    const raw = JSON.stringify({
+      id: "evt_charged_no_sub_on_pay",
+      event: "subscription.charged",
+      payload: {
+        subscription: { entity: { id: "sub_live_1", status: "active" } },
+        payment: {
+          entity: {
+            id: "pay_live_2",
+            amount: 99900,
+            currency: "inr",
+            status: "captured",
+            created_at: 1704067200,
+          },
+        },
+      },
+    });
+    const { sig } = signRazorpayBody(raw);
+
+    const res = await request(app)
+      .post("/api/v1/billing/webhooks/razorpay")
+      .set("X-Razorpay-Signature", sig)
+      .set("Content-Type", "application/json")
+      .send(raw);
+
+    expect(res.statusCode).toBe(200);
+    expect(prisma.subscriptionPayment.upsert).toHaveBeenCalled();
+    expect(prisma.subscription.findUnique).toHaveBeenCalledWith({
+      where: { razorpaySubId: "sub_live_1" },
+    });
+  });
+
   test("payment.captured replay does not double-accrue commission", async () => {
     prisma.webhookEvent.findUnique.mockResolvedValue(null);
     prisma.webhookEvent.create.mockResolvedValue({

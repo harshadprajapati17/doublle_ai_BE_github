@@ -10,20 +10,14 @@ export async function findFirstEnabledByEmail(client, normalizedEmail) {
 
 /**
  * @param {import('../generated/prisma/client').Prisma.TransactionClient | import('../generated/prisma/client').PrismaClient} client
+ * @param {string[]} subs
  */
-export async function findMany(client) {
+export async function findManyBySubs(client, subs) {
+  if (subs.length === 0) return [];
   return client.demoUser.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
+    where: { sub: { in: subs } },
+    select: { sub: true, email: true, name: true },
   });
-}
-
-/**
- * @param {import('../generated/prisma/client').Prisma.TransactionClient | import('../generated/prisma/client').PrismaClient} client
- * @param {string} id
- */
-export async function findUnique(client, id) {
-  return client.demoUser.findUnique({ where: { id } });
 }
 
 /**
@@ -32,21 +26,4 @@ export async function findUnique(client, id) {
  */
 export async function create(client, data) {
   return client.demoUser.create({ data });
-}
-
-/**
- * @param {import('../generated/prisma/client').Prisma.TransactionClient | import('../generated/prisma/client').PrismaClient} client
- * @param {string} id
- * @param {import('../generated/prisma/client').Prisma.DemoUserUpdateInput} data
- */
-export async function update(client, id, data) {
-  return client.demoUser.update({ where: { id }, data });
-}
-
-/**
- * @param {import('../generated/prisma/client').Prisma.TransactionClient | import('../generated/prisma/client').PrismaClient} client
- * @param {string} id
- */
-export async function remove(client, id) {
-  return client.demoUser.delete({ where: { id } });
 }

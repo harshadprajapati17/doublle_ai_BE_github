@@ -7,7 +7,7 @@ jest.unstable_mockModule("../../data/prismaClient.js", () =>
 
 jest.unstable_mockModule("../../config/razorpay.js", () => ({
   razorpay: {
-    customers: { create: jest.fn() },
+    customers: { create: jest.fn(), all: jest.fn() },
     plans: { create: jest.fn() },
     subscriptions: { create: jest.fn(), cancel: jest.fn(), fetch: jest.fn() },
     orders: { create: jest.fn() },
@@ -86,6 +86,10 @@ function stubSuccessfulCreateFlow() {
 
 describe("Billing subscriptions API", () => {
   beforeEach(() => {
+    prisma.program.findFirst.mockReset();
+    prisma.program.findFirst.mockResolvedValue(null);
+    prisma.referral.findUnique.mockReset();
+    prisma.referral.findUnique.mockResolvedValue(null);
     prisma.subscription.findFirst.mockReset();
     prisma.subscription.findUnique.mockReset();
     prisma.subscription.create.mockReset();
@@ -95,10 +99,49 @@ describe("Billing subscriptions API", () => {
     prisma.billingPlan.findUnique.mockReset();
     prisma.billingPlan.create.mockReset();
     razorpay.customers.create.mockReset();
+    razorpay.customers.all.mockReset();
     razorpay.plans.create.mockReset();
     razorpay.subscriptions.create.mockReset();
     razorpay.subscriptions.cancel.mockReset();
     razorpay.subscriptions.fetch.mockReset();
+  });
+
+  test("POST /api/v1/billing/subscriptions returns 201 when Razorpay customer already exists", async () => {
+    stubSuccessfulCreateFlow();
+    razorpay.customers.create.mockRejectedValue({
+      statusCode: 400,
+      error: {
+        code: "BAD_REQUEST_ERROR",
+        description: "Customer already exists for the merchant",
+      },
+    });
+    razorpay.customers.all.mockResolvedValue({
+      items: [
+        {
+          id: "cust_existing",
+          email: "bill@example.com",
+        },
+      ],
+    });
+    prisma.billingCustomer.create.mockResolvedValue({
+      id: CUST_ROW_ID,
+      userId: "user-bill-1",
+      razorpayCustomerId: "cust_existing",
+      email: "bill@example.com",
+    });
+
+    const res = await request(app)
+      .post("/api/v1/billing/subscriptions")
+      .set("Authorization", `Bearer ${userToken()}`)
+      .send({ amount: 2500, currency: "inr", frequency: "QUARTERLY" });
+
+    expect(res.statusCode).toBe(201);
+    expect(razorpay.customers.all).toHaveBeenCalled();
+    expect(prisma.billingCustomer.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ razorpayCustomerId: "cust_existing" }),
+      })
+    );
   });
 
   test("POST /api/v1/billing/subscriptions returns 201 with shortUrl", async () => {
@@ -503,7 +546,74 @@ describe("Billing subscriptions API", () => {
       .set("Authorization", `Bearer ${userToken()}`);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ data: { subscription: null } });
+    expect(res.body).toEqual({
+      data: {
+        subscription: null,
+        refereeBenefit: { status: "NO_ACTIVE_PROGRAM" },
+      },
+    });
+  });
+
+  test("GET /api/v1/billing/subscriptions/me includes applied referee benefit", async () => {
+    const programId = "11111111-1111-1111-1111-111111111111";
+    prisma.program.findFirst.mockResolvedValue({
+      id: programId,
+      status: "ACTIVE",
+      currency: "USD",
+      refereeBenefitType: "CREDIT",
+      refereeBenefitValue: { toString: () => "500" },
+      refereeBenefitTrialDays: null,
+    });
+    prisma.referral.findUnique.mockResolvedValue({
+      id: "22222222-2222-2222-2222-222222222222",
+      refereeUserId: "user-bill-1",
+      programId,
+      code: "ABCD2345",
+      status: "ACTIVE",
+      refereeCreditApplied: true,
+      refereeCreditAppliedAt: new Date("2026-05-18T05:17:06.000Z"),
+    });
+
+    const subRow = {
+      id: SUB_ROW_ID,
+      userId: "user-bill-1",
+      razorpaySubId: "sub_test_1",
+      status: "ACTIVE",
+      amountMinor: 100800,
+      currency: "USD",
+      frequency: "MONTHLY",
+      totalCount: 120,
+      paidCount: 1,
+      currentStart: new Date("2026-05-18T05:17:06.000Z"),
+      currentEnd: new Date("2026-06-17T18:30:00.000Z"),
+      nextChargeAt: new Date("2026-06-17T18:30:00.000Z"),
+      cancelledAt: null,
+      cancelAtCycleEnd: false,
+      shortUrl: "https://rzp.io/rzp/f7efSzaU",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    };
+
+    prisma.subscription.findFirst.mockImplementation(async (args) => {
+      const w = args?.where;
+      if (w && Array.isArray(w.status?.in)) return subRow;
+      if (w && w.userId === "user-bill-1" && !w.status) return subRow;
+      return null;
+    });
+
+    const res = await request(app)
+      .get("/api/v1/billing/subscriptions/me")
+      .set("Authorization", `Bearer ${userToken()}`);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.data.subscription.paidCount).toBe(1);
+    expect(res.body.data.refereeBenefit).toMatchObject({
+      status: "APPLIED",
+      applied: true,
+      appliedAt: "2026-05-18T05:17:06.000Z",
+      code: "ABCD2345",
+      benefit: { type: "CREDIT", value: "500", currency: "USD", trialDays: null },
+    });
   });
 
   test("POST /api/v1/billing/subscriptions/:id/cancel returns 200", async () => {

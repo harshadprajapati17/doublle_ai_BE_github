@@ -1,5 +1,6 @@
 import { getActiveProgramForUser } from "../services/programService.js";
 import {
+  getReferrerDashboard,
   listReferrerReferees,
   listReferrerTransactions,
 } from "../services/referralDashboardService.js";
@@ -20,6 +21,11 @@ export async function postAcceptReferralTerms(req, res) {
 
 export async function getReferralMe(req, res) {
   const result = await getMyReferralCodeAndLink(req.user.id);
+  res.status(200).json(result);
+}
+
+export async function getReferralMeDashboard(req, res) {
+  const result = await getReferrerDashboard(req.user.id, req.query);
   res.status(200).json(result);
 }
 

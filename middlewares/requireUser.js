@@ -1,12 +1,7 @@
 import { parse as parseCookieHeader } from "cookie";
 import { userAccessTokenCookieName } from "../config/userAccessTokenCookie.js";
 import { UnauthorizedError, ForbiddenError } from "../errors/index.js";
-import {
-  secretsFromEnv,
-  verifyJwtHs256WithSecrets,
-} from "../utils/verifyJwtHs256WithSecrets.js";
-
-const USER_JWT_ENV_NAMES = ["USER_JWT_SECRET", "USER_JWT_SECRET_2", "USER_JWT_SECRET_3"];
+import jwt from "jsonwebtoken";
 
 /**
  * Resolves user JWT from `Authorization: Bearer` (preferred) or from the HttpOnly access-token cookie.
@@ -41,19 +36,17 @@ export function resolveUserJwtFromRequest(req) {
 
 /**
  * Verifies HS256 JWT for dashboard users. Requires payload.role === "user" and sub (user id).
- * Accepts `Authorization: Bearer <jwt>` or the HttpOnly cookie set by POST /api/v1/auth/demo (same name as `userAccessTokenCookieName()`).
- * Tokens may be signed with USER_JWT_SECRET, USER_JWT_SECRET_2, or USER_JWT_SECRET_3 when set (demo / multi-issuer).
+ * Accepts `Authorization: Bearer <jwt>` or the HttpOnly cookie set by POST /api/v1/auth/signin-referral (same name as `userAccessTokenCookieName()`).
  */
 export function requireUser(req, res, next) {
-  const primary = process.env.USER_JWT_SECRET;
-  if (!primary || primary.trim() === "") {
+  const secret = process.env.USER_JWT_SECRET;
+  if (!secret || secret.trim() === "") {
     return next(
       new Error(
         "USER_JWT_SECRET is not configured. Set USER_JWT_SECRET in environment variables."
       )
     );
   }
-  const secrets = secretsFromEnv(USER_JWT_ENV_NAMES);
 
   const token = resolveUserJwtFromRequest(req);
   if (!token) {
@@ -65,7 +58,7 @@ export function requireUser(req, res, next) {
   }
 
   try {
-    const payload = verifyJwtHs256WithSecrets(token, secrets);
+    const payload = jwt.verify(token, secret.trim(), { algorithms: ["HS256"] });
     if (!payload || typeof payload !== "object") {
       return next(new UnauthorizedError("Invalid token payload."));
     }

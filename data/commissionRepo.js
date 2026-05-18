@@ -103,3 +103,18 @@ export async function findManyForReferrerProgram(client, referrerUserId, program
     },
   });
 }
+
+/**
+ * @param {import('../generated/prisma/client').Prisma.TransactionClient | import('../generated/prisma/client').PrismaClient} client
+ * @param {string[]} referralIds
+ */
+export async function findManyByReferralIds(client, referralIds) {
+  if (referralIds.length === 0) return [];
+  return client.commission.findMany({
+    where: { referralId: { in: referralIds } },
+    orderBy: [{ accruedAt: "desc" }, { id: "desc" }],
+    include: {
+      referral: { select: { refereeUserId: true } },
+    },
+  });
+}

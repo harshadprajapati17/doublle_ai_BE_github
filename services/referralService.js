@@ -9,54 +9,14 @@ import {
   NotFoundError,
   ReferralAlreadyAttributedError,
   SelfReferralError,
-  ServiceMisconfiguredError,
 } from "../errors/index.js";
 import { refereeBenefitFromProgram } from "./programSerializer.js";
 import { referralToDto } from "./referralSerializer.js";
 import { getReferrerDashboardSummary } from "./referralDashboardService.js";
 import { evaluateFraudSignalsOnAttribution } from "./fraudSignalService.js";
-
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 8;
 const MAX_CODE_ATTEMPTS = 12;
-
-/**
- * @returns {string} Normalized absolute base URL (no trailing slash) for building ?ref= links.
- */
-function resolveReferralPublicBaseUrl() {
-  const raw = process.env.REFERRAL_PUBLIC_BASE_URL;
-  const trimmed = typeof raw === "string" ? raw.trim() : "";
-  if (!trimmed) {
-    throw new ServiceMisconfiguredError(
-      "REFERRAL_PUBLIC_BASE_URL is not set. Configure the public app base URL used for referral links."
-    );
-  }
-  const base = trimmed.replace(/\/$/, "");
-  let url;
-  try {
-    url = new URL(base);
-  } catch {
-    throw new ServiceMisconfiguredError(
-      "REFERRAL_PUBLIC_BASE_URL is not a valid absolute URL (must include a scheme, e.g. http or https)."
-    );
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new ServiceMisconfiguredError(
-      "REFERRAL_PUBLIC_BASE_URL must use http or https."
-    );
-  }
-  return base;
-}
-
-/**
- * @param {string} code
- * @param {string} base
- */
-function buildReferralUrl(code, base) {
-  const url = new URL(base);
-  url.searchParams.set("ref", code);
-  return url.toString();
-}
 
 function randomReferralCode() {
   const bytes = randomBytes(CODE_LENGTH);
@@ -70,28 +30,25 @@ function randomReferralCode() {
 /**
  * @param {{ programId: string; code: string; createdAt: Date }} row
  * @param {{ id: string; termsVersion: string }} program
- * @param {string} publicBase
  */
-function dtoFromCode(row, program, publicBase) {
+function dtoFromCode(row, program) {
   return {
     programId: row.programId,
     code: row.code,
-    referralUrl: buildReferralUrl(row.code, publicBase),
     termsVersion: program.termsVersion,
     createdAt: row.createdAt.toISOString(),
   };
 }
 
 /**
- * Idempotent referral code + URL for the user under the program.
+ * Idempotent referral code for the user under the program.
  * @param {string} userId
  * @param {{ id: string; termsVersion: string }} program
- * @param {string} publicBase
  */
-async function allocateReferralCodeDto(userId, program, publicBase) {
+async function allocateReferralCodeDto(userId, program) {
   const existing = await referralCodeRepo.findByOwnerAndProgram(prisma, userId, program.id);
   if (existing) {
-    return dtoFromCode(existing, program, publicBase);
+    return dtoFromCode(existing, program);
   }
 
   /** @type {unknown} */
@@ -104,7 +61,7 @@ async function allocateReferralCodeDto(userId, program, publicBase) {
         programId: program.id,
         code,
       });
-      return dtoFromCode(created, program, publicBase);
+      return dtoFromCode(created, program);
     } catch (e) {
       lastErr = e;
       if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
@@ -123,7 +80,6 @@ async function allocateReferralCodeDto(userId, program, publicBase) {
  * @param {string} ip
  */
 export async function acceptReferralTermsAndGenerateLink(userId, ip) {
-  const publicBase = resolveReferralPublicBaseUrl();
   const program = await programRepo.findFirstActive(prisma);
   if (!program) {
     throw new NoActiveReferralProgramError();
@@ -151,26 +107,24 @@ export async function acceptReferralTermsAndGenerateLink(userId, ip) {
     idempotent = false;
   }
 
-  const linkDto = await allocateReferralCodeDto(userId, program, publicBase);
+  const codeDto = await allocateReferralCodeDto(userId, program);
   return {
     data: {
       programId: program.id,
       termsVersion: program.termsVersion,
       acceptedAt: acceptedAt.toISOString(),
       idempotent,
-      code: linkDto.code,
-      referralUrl: linkDto.referralUrl,
-      createdAt: linkDto.createdAt,
+      code: codeDto.code,
+      createdAt: codeDto.createdAt,
     },
   };
 }
 
 /**
- * Returns the caller's referral code and share URL for the active program (read-only).
+ * Returns the caller's referral code for the active program (read-only).
  * @param {string} userId
  */
 export async function getMyReferralCodeAndLink(userId) {
-  const publicBase = resolveReferralPublicBaseUrl();
   const program = await programRepo.findFirstActive(prisma);
   if (!program) {
     throw new NoActiveReferralProgramError();
@@ -179,7 +133,7 @@ export async function getMyReferralCodeAndLink(userId) {
   const row = await referralCodeRepo.findByOwnerAndProgram(prisma, userId, program.id);
   if (!row) {
     throw new NotFoundError(
-      "No referral code yet. Accept the active referral program terms to obtain your link and code."
+      "No referral code yet. Accept the active referral program terms to obtain your code."
     );
   }
 
@@ -190,7 +144,6 @@ export async function getMyReferralCodeAndLink(userId) {
       programId: program.id,
       termsVersion: program.termsVersion,
       code: row.code,
-      referralUrl: buildReferralUrl(row.code, publicBase),
       createdAt: row.createdAt.toISOString(),
       summary,
     },

@@ -14,7 +14,7 @@ const options = {
       title: "Doublle AI Backend API",
       version: "1.0.0",
       description:
-        "Auto-generated OpenAPI docs for the Doublle AI backend (health, payment, billing subscriptions, admin programs, referral, optional DB-backed demo user auth).",
+        "Auto-generated OpenAPI docs for the Doublle AI backend (health, billing subscriptions, admin programs, referral, referral auth).",
     },
     servers: [{ url: serverUrl }],
     components: {
@@ -24,14 +24,14 @@ const options = {
           scheme: "bearer",
           bearerFormat: "JWT",
           description:
-            'Admin HS256 JWT. Payload must include role="admin" and sub=adminId. Signed with ADMIN_JWT_SECRET, ADMIN_JWT_SECRET_2, or ADMIN_JWT_SECRET_3 (when set). Alternatively, the same JWT may be sent in the HttpOnly `doublle_admin_access_token` cookie (name overridable with ADMIN_ACCESS_TOKEN_COOKIE_NAME) after POST /api/v1/auth/demo-admin.',
+            'Admin HS256 JWT. Payload must include role="admin" and sub=adminId. Signed with ADMIN_JWT_SECRET. Alternatively, the same JWT may be sent in the HttpOnly `doublle_admin_access_token` cookie (name overridable with ADMIN_ACCESS_TOKEN_COOKIE_NAME) after POST /api/v1/auth/admin-signin-referral.',
         },
         userBearerAuth: {
           type: "http",
           scheme: "bearer",
           bearerFormat: "JWT",
           description:
-            'User HS256 JWT. Payload must include role="user" and sub=userId. Signed with USER_JWT_SECRET, USER_JWT_SECRET_2, or USER_JWT_SECRET_3 (when set). Alternatively, the same JWT may be sent in the HttpOnly `doublle_access_token` cookie (name overridable with USER_ACCESS_TOKEN_COOKIE_NAME) after POST /api/v1/auth/demo.',
+            'User HS256 JWT. Payload must include role="user" and sub=userId. Signed with USER_JWT_SECRET. Alternatively, the same JWT may be sent in the HttpOnly `doublle_access_token` cookie (name overridable with USER_ACCESS_TOKEN_COOKIE_NAME) after POST /api/v1/auth/signin-referral.',
         },
       },
       schemas: {
@@ -50,21 +50,17 @@ const options = {
             },
           },
         },
-        DemoAuthLoginRequest: {
+        ReferralAuthSignInRequest: {
           type: "object",
           additionalProperties: false,
-          required: ["email"],
+          required: ["email", "password"],
           properties: {
-            email: { type: "string", format: "email", example: "testuser1@test.com" },
-            password: {
-              type: "string",
-              description:
-                "Required when `DEMO_AUTH_PASSWORD` is set; ignored otherwise.",
-            },
+            email: { type: "string", format: "email", example: "user@example.com" },
+            password: { type: "string", minLength: 8, maxLength: 128 },
           },
-          example: { email: "testuser1@test.com" },
+          example: { email: "user@example.com", password: "securepass123" },
         },
-        DemoAuthLoginSuccess: {
+        ReferralAuthSignInSuccess: {
           type: "object",
           required: ["data"],
           properties: {
@@ -79,74 +75,122 @@ const options = {
             },
           },
         },
-        DemoUser: {
-          type: "object",
-          required: ["id", "sub", "email", "isEnabled", "createdAt", "updatedAt"],
-          properties: {
-            id: { type: "string", format: "uuid" },
-            sub: { type: "string", example: "demo-user-1" },
-            email: { type: "string", format: "email", example: "testuser1@test.com" },
-            name: { type: "string", nullable: true },
-            isEnabled: { type: "boolean" },
-            createdAt: { type: "string", format: "date-time" },
-            updatedAt: { type: "string", format: "date-time" },
-          },
-        },
-        DemoUserCreate: {
+        ReferralAuthUserSignupRequest: {
           type: "object",
           additionalProperties: false,
-          required: ["sub", "email"],
-          example: { sub: "demo-user-1", email: "testuser1@test.com", name: "Demo One" },
+          required: ["email", "password"],
           properties: {
-            sub: { type: "string", minLength: 1, maxLength: 256 },
-            email: { type: "string", format: "email" },
-            name: { type: "string", minLength: 1, maxLength: 200 },
+            email: { type: "string", format: "email", example: "newuser@example.com" },
+            password: { type: "string", minLength: 8, maxLength: 128 },
+            name: { type: "string", maxLength: 200, example: "New User" },
+            referral: {
+              type: "object",
+              additionalProperties: false,
+              required: ["code"],
+              properties: {
+                code: {
+                  type: "string",
+                  minLength: 6,
+                  maxLength: 16,
+                  pattern: "^[A-HJKLMNP-Z2-9]{6,16}$",
+                  example: "ABCD2345",
+                },
+                source: {
+                  type: "string",
+                  enum: ["LINK", "MANUAL_CODE", "COOKIE", "BOTH"],
+                },
+                cookieData: { type: "object", additionalProperties: true, nullable: true },
+              },
+            },
+          },
+          example: {
+            email: "newuser@example.com",
+            password: "securepass123",
+            name: "New User",
+            referral: { code: "ABCD2345", source: "LINK" },
           },
         },
-        DemoUserPatch: {
+        ReferralAuthUserSignupSuccess: {
+          type: "object",
+          required: ["data"],
+          properties: {
+            data: {
+              type: "object",
+              required: ["accessToken", "tokenType", "expiresInSeconds", "user", "referral"],
+              properties: {
+                accessToken: { type: "string" },
+                tokenType: { type: "string", example: "Bearer" },
+                expiresInSeconds: { type: "integer", example: 86400 },
+                user: {
+                  type: "object",
+                  required: ["id", "sub", "email"],
+                  properties: {
+                    id: { type: "string", format: "uuid" },
+                    sub: { type: "string" },
+                    email: { type: "string", format: "email" },
+                    name: { type: "string", nullable: true },
+                  },
+                },
+                referral: {
+                  type: "object",
+                  required: ["attributed"],
+                  properties: {
+                    attributed: { type: "boolean" },
+                    skipped: { type: "boolean" },
+                    reason: {
+                      type: "string",
+                      enum: [
+                        "CODE_NOT_FOUND",
+                        "NO_ACTIVE_PROGRAM",
+                        "SELF_REFERRAL",
+                        "ALREADY_ATTRIBUTED",
+                      ],
+                    },
+                    referral: { type: "object", additionalProperties: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+        ReferralAuthAdminSignupRequest: {
           type: "object",
           additionalProperties: false,
-          example: { isEnabled: false },
+          required: ["email", "password"],
           properties: {
-            sub: { type: "string", minLength: 1, maxLength: 256 },
-            email: { type: "string", format: "email" },
-            name: { type: "string", nullable: true, minLength: 1, maxLength: 200 },
-            isEnabled: { type: "boolean" },
+            email: { type: "string", format: "email", example: "admin@example.com" },
+            password: { type: "string", minLength: 8, maxLength: 128 },
+            name: { type: "string", maxLength: 200, example: "Admin User" },
+          },
+          example: {
+            email: "admin@example.com",
+            password: "securepass123",
+            name: "Admin User",
           },
         },
-        DemoAdmin: {
+        ReferralAuthAdminSignupSuccess: {
           type: "object",
-          required: ["id", "sub", "email", "isEnabled", "createdAt", "updatedAt"],
+          required: ["data"],
           properties: {
-            id: { type: "string", format: "uuid" },
-            sub: { type: "string", example: "demo-admin-1" },
-            email: { type: "string", format: "email", example: "admin1@test.com" },
-            name: { type: "string", nullable: true },
-            isEnabled: { type: "boolean" },
-            createdAt: { type: "string", format: "date-time" },
-            updatedAt: { type: "string", format: "date-time" },
-          },
-        },
-        DemoAdminCreate: {
-          type: "object",
-          additionalProperties: false,
-          required: ["sub", "email"],
-          example: { sub: "demo-admin-1", email: "admin1@test.com", name: "Demo Admin" },
-          properties: {
-            sub: { type: "string", minLength: 1, maxLength: 256 },
-            email: { type: "string", format: "email" },
-            name: { type: "string", minLength: 1, maxLength: 200 },
-          },
-        },
-        DemoAdminPatch: {
-          type: "object",
-          additionalProperties: false,
-          example: { isEnabled: false },
-          properties: {
-            sub: { type: "string", minLength: 1, maxLength: 256 },
-            email: { type: "string", format: "email" },
-            name: { type: "string", nullable: true, minLength: 1, maxLength: 200 },
-            isEnabled: { type: "boolean" },
+            data: {
+              type: "object",
+              required: ["accessToken", "tokenType", "expiresInSeconds", "admin"],
+              properties: {
+                accessToken: { type: "string" },
+                tokenType: { type: "string", example: "Bearer" },
+                expiresInSeconds: { type: "integer", example: 86400 },
+                admin: {
+                  type: "object",
+                  required: ["id", "sub", "email"],
+                  properties: {
+                    id: { type: "string", format: "uuid" },
+                    sub: { type: "string" },
+                    email: { type: "string", format: "email" },
+                    name: { type: "string", nullable: true },
+                  },
+                },
+              },
+            },
           },
         },
         ProgramStatus: {
@@ -345,75 +389,6 @@ const options = {
             termsVersion: { type: "string", maxLength: 64 },
           },
         },
-        Plan: {
-          type: "object",
-          required: [
-            "commitment",
-            "mode",
-            "requests",
-            "monthly",
-            "months",
-            "total",
-          ],
-          properties: {
-            commitment: { type: "string", example: "annual" },
-            mode: { type: "string", example: "subscription" },
-            requests: { type: "integer", minimum: 1, example: 1000 },
-            monthly: { type: "integer", minimum: 1, example: 200 },
-            months: { type: "integer", minimum: 1, example: 12 },
-            total: { type: "integer", minimum: 1, example: 2400 },
-          },
-        },
-        CreateOrderRequest: {
-          type: "object",
-          example: {
-            amount: 1999,
-            currency: "USD",
-            plan: {
-              commitment: "annual",
-              mode: "subscription",
-              requests: 10000,
-              monthly: 199,
-              months: 12,
-              total: 1999,
-            },
-          },
-          required: ["amount", "currency"],
-          properties: {
-            amount: {
-              type: "integer",
-              minimum: 1,
-              description:
-                "Positive integer in major currency units (e.g., 2000 for $2000).",
-            },
-            currency: {
-              type: "string",
-              minLength: 3,
-              maxLength: 3,
-              example: "USD",
-            },
-            plan: { $ref: "#/components/schemas/Plan" },
-          },
-        },
-        VerifyPaymentRequest: {
-          type: "object",
-          example: {
-            razorpay_order_id: "order_NnNnNnNnNnNnNn",
-            razorpay_payment_id: "pay_NnNnNnNnNnNnNn",
-            razorpay_signature:
-              "9b1e8c6e4f2a3d5e7f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f",
-          },
-          required: [
-            "razorpay_order_id",
-            "razorpay_payment_id",
-            "razorpay_signature",
-          ],
-          properties: {
-            razorpay_order_id: { type: "string" },
-            razorpay_payment_id: { type: "string" },
-            razorpay_signature: { type: "string" },
-          },
-        },
         BillingFrequency: {
           type: "string",
           enum: ["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"],
@@ -453,7 +428,6 @@ const options = {
     },
     tags: [
       { name: "Health", description: "Service health checks" },
-      { name: "Payment", description: "Razorpay order + verification" },
       {
         name: "Billing",
         description:
@@ -461,24 +435,14 @@ const options = {
       },
       { name: "Admin · Programs", description: "Referral program admin APIs" },
       {
-        name: "Admin · Demo users",
-        description:
-          "CRUD for `demo_users` rows used by passwordless demo login when `DEMO_AUTH_ENABLED` is on.",
-      },
-      {
-        name: "Admin · Demo admins",
-        description:
-          "CRUD for `demo_admins` rows used by passwordless demo admin login when `DEMO_AUTH_ENABLED` is on.",
-      },
-      {
         name: "Referral",
         description:
           "Referral program: signup-time code validation and attribution; authenticated link, terms, and stats",
       },
       {
-        name: "Auth · Demo",
+        name: "Auth · Referral",
         description:
-          "Optional passwordless JWT mint for demo users (`demo_users`) and demo admins (`demo_admins`) when `DEMO_AUTH_ENABLED` is on. Not mounted in production unless `DEMO_AUTH_ALLOW_PRODUCTION=true`.",
+          "User and admin sign-up / sign-in against `demo_users` and `demo_admins` (email + password). User signup optionally attributes referral (fail-open).",
       },
     ],
   },

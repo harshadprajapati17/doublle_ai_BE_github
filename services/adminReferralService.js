@@ -1,4 +1,7 @@
+import { getCapturedPaymentSummariesByUserIds } from "../data/billingRepos.js";
 import { prisma } from "../data/prismaClient.js";
+import * as demoUserRepo from "../data/demoUserRepo.js";
+import * as programRepo from "../data/programRepo.js";
 import * as referralRepo from "../data/referralRepo.js";
 import { writeAuditLog } from "./auditService.js";
 import { ValidationError, NotFoundError } from "../errors/index.js";
@@ -10,6 +13,44 @@ import {
   referralDetailToAdminDto,
   referralToAdminDto,
 } from "./adminReferralSerializer.js";
+
+/**
+ * @param {string[]} subs
+ * @returns {Promise<Map<string, { email: string; name: string | null }>>}
+ */
+async function loadDemoProfilesBySubs(subs) {
+  const unique = [...new Set(subs)];
+  if (unique.length === 0) {
+    return new Map();
+  }
+  const rows = await demoUserRepo.findManyBySubs(prisma, unique);
+  return new Map(rows.map((u) => [u.sub, { email: u.email, name: u.name }]));
+}
+
+/**
+ * @param {{ referrerUserId: string; refereeUserId: string }} referral
+ * @param {Map<string, { email: string; name: string | null }>} profileBySub
+ */
+function profilesForReferral(referral, profileBySub) {
+  return {
+    referrer: profileBySub.get(referral.referrerUserId) ?? null,
+    referee: profileBySub.get(referral.refereeUserId) ?? null,
+  };
+}
+
+/**
+ * @param {import('../generated/prisma/client').Referral} referral
+ * @param {Map<string, { email: string; name: string | null }>} profileBySub
+ * @param {Map<string, { capturedCount: number; firstCapturedAt: Date | null; totalAmountMinor: number; currency: string | null }>} paymentByUserId
+ * @param {string} programCurrency
+ */
+function enrichmentForReferral(referral, profileBySub, paymentByUserId, programCurrency) {
+  return {
+    ...profilesForReferral(referral, profileBySub),
+    paymentSummary: paymentByUserId.get(referral.refereeUserId),
+    programCurrency,
+  };
+}
 
 /**
  * @param {{ limit: number; cursor?: string; referrerUserId?: string; refereeUserId?: string; code?: string; status?: string; programId?: string; createdFrom?: string; createdTo?: string }} query
@@ -52,6 +93,7 @@ export async function listAdminReferrals(query) {
     where,
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take,
+    include: { program: { select: { currency: true } } },
   });
 
   const hasMore = rows.length > limit;
@@ -59,8 +101,19 @@ export async function listAdminReferrals(query) {
   const nextCursor =
     hasMore && page.length > 0 ? encodeReferralListCursor(page[page.length - 1]) : null;
 
+  const refereeUserIds = page.map((row) => row.refereeUserId);
+  const [profileBySub, paymentByUserId] = await Promise.all([
+    loadDemoProfilesBySubs(page.flatMap((row) => [row.referrerUserId, row.refereeUserId])),
+    getCapturedPaymentSummariesByUserIds(refereeUserIds),
+  ]);
+
   return {
-    data: page.map((row) => referralToAdminDto(row)),
+    data: page.map((row) =>
+      referralToAdminDto(
+        row,
+        enrichmentForReferral(row, profileBySub, paymentByUserId, row.program.currency)
+      )
+    ),
     meta: { nextCursor },
   };
 }
@@ -73,7 +126,16 @@ export async function getAdminReferralById(id) {
   if (!row) {
     throw new NotFoundError("Referral not found.");
   }
-  return { data: referralDetailToAdminDto(row) };
+  const [profileBySub, paymentByUserId] = await Promise.all([
+    loadDemoProfilesBySubs([row.referrerUserId, row.refereeUserId]),
+    getCapturedPaymentSummariesByUserIds([row.refereeUserId]),
+  ]);
+  return {
+    data: referralDetailToAdminDto(
+      row,
+      enrichmentForReferral(row, profileBySub, paymentByUserId, row.program.currency)
+    ),
+  };
 }
 
 /**
@@ -129,5 +191,16 @@ export async function applyReferralDecision(actorId, id, body) {
     return row;
   });
 
-  return { data: referralToAdminDto(updated) };
+  const [profileBySub, paymentByUserId, program] = await Promise.all([
+    loadDemoProfilesBySubs([updated.referrerUserId, updated.refereeUserId]),
+    getCapturedPaymentSummariesByUserIds([updated.refereeUserId]),
+    programRepo.findUnique(prisma, updated.programId, undefined),
+  ]);
+  const programCurrency = program?.currency ?? "";
+  return {
+    data: referralToAdminDto(
+      updated,
+      enrichmentForReferral(updated, profileBySub, paymentByUserId, programCurrency)
+    ),
+  };
 }

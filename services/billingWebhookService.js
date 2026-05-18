@@ -63,6 +63,27 @@ function summarizeWebhookPayloadIds(payload) {
 }
 
 /**
+ * Razorpay often omits `subscription_id` on payment.entity for subscription.charged;
+ * the sub id lives on subscription.entity.id instead.
+ *
+ * @param {Record<string, unknown>} paymentEntity
+ * @param {Record<string, unknown> | null | undefined} [subscriptionEntity]
+ */
+export function resolveRazorpaySubscriptionId(paymentEntity, subscriptionEntity) {
+  const fromPayment =
+    typeof paymentEntity.subscription_id === "string" ? paymentEntity.subscription_id : "";
+  if (fromPayment.startsWith("sub_")) return fromPayment;
+
+  const fromSubscription =
+    subscriptionEntity && typeof subscriptionEntity.id === "string"
+      ? subscriptionEntity.id
+      : "";
+  if (fromSubscription.startsWith("sub_")) return fromSubscription;
+
+  return "";
+}
+
+/**
  * @param {Record<string, unknown>} entity
  */
 async function syncSubscriptionFromRzpEntity(entity) {
@@ -79,44 +100,48 @@ async function syncSubscriptionFromRzpEntity(entity) {
 }
 
 /**
- * @param {Record<string, unknown>} entity
+ * @param {Record<string, unknown>} paymentEntity
+ * @param {Record<string, unknown> | null | undefined} [subscriptionEntity]
  */
-async function syncPaymentFromRzpEntity(entity) {
-  const rid = typeof entity.subscription_id === "string" ? entity.subscription_id : "";
+async function syncPaymentFromRzpEntity(paymentEntity, subscriptionEntity) {
+  const rid = resolveRazorpaySubscriptionId(paymentEntity, subscriptionEntity);
   if (!rid.startsWith("sub_")) return;
 
   const local = await findSubscriptionByRazorpayId(rid);
   if (!local) return;
 
-  const payId = typeof entity.id === "string" ? entity.id : "";
+  const payId = typeof paymentEntity.id === "string" ? paymentEntity.id : "";
   if (!payId.startsWith("pay_")) return;
 
-  const amountMinor = Number(entity.amount);
+  const amountMinor = Number(paymentEntity.amount);
   if (!Number.isFinite(amountMinor)) return;
 
   const currency =
-    typeof entity.currency === "string" ? entity.currency.trim().toUpperCase() : local.currency;
+    typeof paymentEntity.currency === "string"
+      ? paymentEntity.currency.trim().toUpperCase()
+      : local.currency;
 
   const errObj =
-    entity.error && typeof entity.error === "object"
-      ? /** @type {Record<string, unknown>} */ (entity.error)
+    paymentEntity.error && typeof paymentEntity.error === "object"
+      ? /** @type {Record<string, unknown>} */ (paymentEntity.error)
       : null;
 
   const paymentRow = await upsertSubscriptionPaymentByRzpPaymentId(local.id, {
     razorpayPaymentId: payId,
-    razorpayOrderId: typeof entity.order_id === "string" ? entity.order_id : null,
-    razorpayInvoiceId: typeof entity.invoice_id === "string" ? entity.invoice_id : null,
+    razorpayOrderId: typeof paymentEntity.order_id === "string" ? paymentEntity.order_id : null,
+    razorpayInvoiceId:
+      typeof paymentEntity.invoice_id === "string" ? paymentEntity.invoice_id : null,
     amountMinor,
     currency,
-    status: mapRazorpayPaymentStatus(entity.status),
-    method: typeof entity.method === "string" ? entity.method : null,
+    status: mapRazorpayPaymentStatus(paymentEntity.status),
+    method: typeof paymentEntity.method === "string" ? paymentEntity.method : null,
     errorCode: errObj && typeof errObj.code === "string" ? errObj.code : null,
     errorDescription:
       errObj && typeof errObj.description === "string" ? errObj.description : null,
     capturedAt:
-      String(entity.status).toLowerCase() === "captured"
-        ? parseRazorpayTimestamp(entity.created_at) ?? new Date()
-        : parseRazorpayTimestamp(entity.created_at),
+      String(paymentEntity.status).toLowerCase() === "captured"
+        ? parseRazorpayTimestamp(paymentEntity.created_at) ?? new Date()
+        : parseRazorpayTimestamp(paymentEntity.created_at),
   });
 
   if (paymentRow.status === "CAPTURED") {
@@ -152,8 +177,9 @@ async function processRazorpayEventPayload(eventType, payload) {
     const subEntity = unwrapRazorpayWebhookEntity(p.subscription);
     if (subEntity) await syncSubscriptionFromRzpEntity(subEntity);
     if (eventType === "subscription.charged") {
+      const subEntity = unwrapRazorpayWebhookEntity(p.subscription);
       const payEntity = unwrapRazorpayWebhookEntity(p.payment);
-      if (payEntity) await syncPaymentFromRzpEntity(payEntity);
+      if (payEntity) await syncPaymentFromRzpEntity(payEntity, subEntity);
     }
     return;
   }

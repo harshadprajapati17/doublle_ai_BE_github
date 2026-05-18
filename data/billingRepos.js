@@ -175,6 +175,15 @@ export async function findBillingCustomerByUserId(userId) {
 }
 
 /**
+ * @param {string} razorpayCustomerId
+ */
+export async function findBillingCustomerByRazorpayCustomerId(razorpayCustomerId) {
+  return prisma.billingCustomer.findUnique({
+    where: { razorpayCustomerId },
+  });
+}
+
+/**
  * @param {{ userId: string; razorpayCustomerId: string; email?: string | null }} data
  */
 export async function createBillingCustomerRow(data) {
@@ -230,6 +239,50 @@ export async function countCapturedPaymentsForUser(userId) {
       subscription: { userId },
     },
   });
+}
+
+/**
+ * Captured subscription payment aggregates per user (for referrer dashboard).
+ * @param {string[]} userIds
+ * @returns {Promise<Map<string, { capturedCount: number; firstCapturedAt: Date | null; totalAmountMinor: number; currency: string | null }>>}
+ */
+export async function getCapturedPaymentSummariesByUserIds(userIds) {
+  /** @type {Map<string, { capturedCount: number; firstCapturedAt: Date | null; totalAmountMinor: number; currency: string | null }>} */
+  const map = new Map();
+  if (userIds.length === 0) return map;
+
+  const rows = await prisma.subscriptionPayment.findMany({
+    where: {
+      status: "CAPTURED",
+      subscription: { userId: { in: userIds } },
+    },
+    select: {
+      amountMinor: true,
+      currency: true,
+      capturedAt: true,
+      subscription: { select: { userId: true } },
+    },
+    orderBy: [{ capturedAt: "asc" }, { createdAt: "asc" }],
+  });
+
+  for (const row of rows) {
+    const userId = row.subscription.userId;
+    const entry = map.get(userId) ?? {
+      capturedCount: 0,
+      firstCapturedAt: null,
+      totalAmountMinor: 0,
+      currency: row.currency,
+    };
+    entry.capturedCount += 1;
+    entry.totalAmountMinor += row.amountMinor;
+    if (row.capturedAt && !entry.firstCapturedAt) {
+      entry.firstCapturedAt = row.capturedAt;
+    }
+    entry.currency = row.currency;
+    map.set(userId, entry);
+  }
+
+  return map;
 }
 
 /**

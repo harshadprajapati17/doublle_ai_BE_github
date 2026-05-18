@@ -30,7 +30,9 @@ router.use(requireUser);
  *       200:
  *         description: >
  *           Subscription summary or null if none. When status is CREATED, `checkout` includes
- *           keyId and subscriptionId for Razorpay Standard Checkout.
+ *           keyId and subscriptionId for Razorpay Standard Checkout. `refereeBenefit` describes
+ *           referral credit for the authenticated user (referee): configured benefit, applied flag,
+ *           and status (`APPLIED`, `PENDING`, `NOT_REFERRED`, etc.).
  *       401: { description: Unauthenticated, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
  */
 router.get("/subscriptions/me", asyncHandler(getBillingSubscriptionMe));

@@ -23,6 +23,9 @@ router.use(requireAdmin);
  *   get:
  *     tags: [Admin · Referrals]
  *     summary: Search referrals (referrer, referee, code, status, date range)
+ *     description: >
+ *       Each row includes `referrer` and `referee` profiles (from `demo_users`) and `payment`
+ *       for the referee (`hasPaid`, captured count, first paid at, total amount).
  *     security:
  *       - bearerAuth: []
  *     parameters:

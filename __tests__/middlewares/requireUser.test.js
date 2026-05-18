@@ -85,19 +85,4 @@ describe("requireUser (via referral routes)", () => {
     expect(res.body.error?.code).toBe("NO_ACTIVE_REFERRAL_PROGRAM");
   });
 
-  test("accepts token signed with USER_JWT_SECRET_3", async () => {
-    const { prisma } = await import("../../data/prismaClient.js");
-    prisma.program.findFirst.mockResolvedValue(null);
-    const tok = jwt.sign(
-      { sub: "user-demo-3", role: "user" },
-      process.env.USER_JWT_SECRET_3,
-      { algorithm: "HS256" }
-    );
-    const res = await request(app)
-      .post("/api/v1/referral/terms/accept")
-      .set("Authorization", `Bearer ${tok}`)
-      .send({});
-    expect(res.statusCode).toBe(404);
-    expect(res.body.error?.code).toBe("NO_ACTIVE_REFERRAL_PROGRAM");
-  });
 });

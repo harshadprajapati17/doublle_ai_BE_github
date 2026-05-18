@@ -19,20 +19,6 @@ describe("OpenAPI sample examples", () => {
     });
   });
 
-  test("CreateOrderRequest example has amount matching plan.total", () => {
-    const ex = swaggerSpec.components.schemas.CreateOrderRequest.example;
-    expect(ex.amount).toBe(ex.plan.total);
-    expect(ex.currency).toBe("USD");
-  });
-
-  test("VerifyPaymentRequest example includes all required fields", () => {
-    const ex = swaggerSpec.components.schemas.VerifyPaymentRequest.example;
-    expect(ex.razorpay_order_id).toMatch(/^order_/);
-    expect(ex.razorpay_payment_id).toMatch(/^pay_/);
-    expect(typeof ex.razorpay_signature).toBe("string");
-    expect(ex.razorpay_signature.length).toBeGreaterThan(10);
-  });
-
   test("CreateSubscriptionRequest example matches BillingFrequency enum", () => {
     const ex = swaggerSpec.components.schemas.CreateSubscriptionRequest.example;
     expect(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"]).toContain(ex.frequency);
@@ -53,18 +39,9 @@ describe("OpenAPI sample examples", () => {
     expect(media.schema.$ref).toBe("#/components/schemas/ProgramCreate");
   });
 
-  test("DemoAuthLoginRequest example email matches documented demo user", () => {
-    const ex = swaggerSpec.components.schemas.DemoAuthLoginRequest.example;
-    expect(ex).toEqual({ email: "testuser1@test.com" });
+  test("ReferralAuthSignInRequest example includes email and password", () => {
+    const ex = swaggerSpec.components.schemas.ReferralAuthSignInRequest.example;
+    expect(ex).toMatchObject({ email: "user@example.com", password: "securepass123" });
   });
 
-  test("DemoUserCreate example includes sub and email", () => {
-    const ex = swaggerSpec.components.schemas.DemoUserCreate.example;
-    expect(ex).toMatchObject({ sub: "demo-user-1", email: "testuser1@test.com" });
-  });
-
-  test("DemoAdminCreate example includes sub and email", () => {
-    const ex = swaggerSpec.components.schemas.DemoAdminCreate.example;
-    expect(ex).toMatchObject({ sub: "demo-admin-1", email: "admin1@test.com" });
-  });
 });

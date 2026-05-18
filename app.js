@@ -6,16 +6,11 @@ import swaggerUi from "swagger-ui-express";
 import healthRoutes from "./routes/health.js";
 import billingWebhookRoutes from "./routes/billingWebhook.js";
 import billingRoutes from "./routes/billing.js";
-import paymentRoutes from "./routes/payment.js";
 import adminProgramsRoutes from "./routes/admin/programs.js";
 import adminReferralsRoutes from "./routes/admin/referrals.js";
-import adminDemoUsersRoutes from "./routes/admin/demoUsers.js";
-import adminDemoAdminsRoutes from "./routes/admin/demoAdmins.js";
 import referralRoutes from "./routes/referral.js";
 import internalCommissionsRoutes from "./routes/internal/commissions.js";
-import demoAuthRoutes from "./routes/demoAuth.js";
-import demoAdminAuthRoutes from "./routes/demoAdminAuth.js";
-import { isDemoAuthRuntimeEnabled } from "./config/demoAuthFlags.js";
+import referralAuthRoutes from "./routes/referralAuth.js";
 import { swaggerSpec } from "./config/swagger.js";
 import { notFoundHandler } from "./middlewares/notFound.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
@@ -56,17 +51,11 @@ app.use(
 
 app.use("/health", healthRoutes);
 app.use("/api/v1/billing", billingRoutes);
-app.use("/api/payment", paymentRoutes);
 app.use("/api/v1/admin/programs", adminProgramsRoutes);
 app.use("/api/v1/admin/referrals", adminReferralsRoutes);
-app.use("/api/v1/admin/demo-users", adminDemoUsersRoutes);
-app.use("/api/v1/admin/demo-admins", adminDemoAdminsRoutes);
 app.use("/api/v1/referral", referralRoutes);
 app.use("/api/v1/internal/commissions", internalCommissionsRoutes);
-if (isDemoAuthRuntimeEnabled()) {
-  app.use("/api/v1/auth/demo", demoAuthRoutes);
-  app.use("/api/v1/auth/demo-admin", demoAdminAuthRoutes);
-}
+app.use("/api/v1/auth", referralAuthRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
