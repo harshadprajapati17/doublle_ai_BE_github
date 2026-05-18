@@ -57,16 +57,4 @@ describe("Admin programs auth", () => {
     expect(res.statusCode).toBe(403);
   });
 
-  test("GET /api/v1/admin/programs accepts JWT signed with ADMIN_JWT_SECRET_2", async () => {
-    const token = jwt.sign(
-      { sub: "admin-demo-2", role: "admin" },
-      process.env.ADMIN_JWT_SECRET_2,
-      { algorithm: "HS256" }
-    );
-    const res = await request(app)
-      .get("/api/v1/admin/programs")
-      .set("Authorization", `Bearer ${token}`);
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ data: [], meta: { nextCursor: null } });
-  });
 });

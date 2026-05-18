@@ -59,19 +59,30 @@ describe("requireUser (via referral routes)", () => {
     expect(res.body.error?.code).toBe("NO_ACTIVE_REFERRAL_PROGRAM");
   });
 
-  test("accepts token signed with USER_JWT_SECRET_3", async () => {
+  test("allows user JWT from HttpOnly cookie (no Authorization header)", async () => {
     const { prisma } = await import("../../data/prismaClient.js");
     prisma.program.findFirst.mockResolvedValue(null);
-    const tok = jwt.sign(
-      { sub: "user-demo-3", role: "user" },
-      process.env.USER_JWT_SECRET_3,
-      { algorithm: "HS256" }
-    );
+    const tok = userToken();
     const res = await request(app)
       .post("/api/v1/referral/terms/accept")
-      .set("Authorization", `Bearer ${tok}`)
+      .set("Cookie", `doublle_access_token=${tok}`)
       .send({});
     expect(res.statusCode).toBe(404);
     expect(res.body.error?.code).toBe("NO_ACTIVE_REFERRAL_PROGRAM");
   });
+
+  test("prefers Authorization Bearer over cookie when both are sent", async () => {
+    const { prisma } = await import("../../data/prismaClient.js");
+    prisma.program.findFirst.mockResolvedValue(null);
+    const headerTok = userToken({ sub: "from-header" });
+    const cookieTok = userToken({ sub: "from-cookie" });
+    const res = await request(app)
+      .post("/api/v1/referral/terms/accept")
+      .set("Authorization", `Bearer ${headerTok}`)
+      .set("Cookie", `doublle_access_token=${cookieTok}`)
+      .send({});
+    expect(res.statusCode).toBe(404);
+    expect(res.body.error?.code).toBe("NO_ACTIVE_REFERRAL_PROGRAM");
+  });
+
 });
