@@ -22,7 +22,9 @@ function programRowToJson(row) {
     referrerRewardDurationMonths: row.rewardDurationMonths,
     cookieDays: row.cookieDays,
     attributionRule: row.attributionRule,
+    refereeBenefitType: row.refereeBenefitType,
     refereeBenefitValue: decimalToString(row.refereeBenefitValue),
+    refereeBenefitTrialDays: row.refereeBenefitTrialDays,
     holdPeriodDays: row.holdPeriodDays,
     monthlyCap: decimalToString(row.monthlyCap),
     lifetimeCap: decimalToString(row.lifetimeCap),
@@ -62,4 +64,45 @@ export function programToDto(row, { includeVersions } = {}) {
  */
 export function programSnapshotPayload(row) {
   return programRowToJson(row);
+}
+
+/**
+ * @param {import('../generated/prisma/client').Program} program
+ */
+export function refereeBenefitFromProgram(program) {
+  const type = program.refereeBenefitType;
+  if (type === "CREDIT") {
+    return {
+      type,
+      value: decimalToString(program.refereeBenefitValue),
+      currency: program.currency,
+      trialDays: null,
+    };
+  }
+  if (type === "TRIAL_EXTENSION") {
+    return {
+      type,
+      value: null,
+      currency: program.currency,
+      trialDays: program.refereeBenefitTrialDays,
+    };
+  }
+  return {
+    type: "NONE",
+    value: null,
+    currency: program.currency,
+    trialDays: null,
+  };
+}
+
+/**
+ * User-facing program snapshot (no admin-only fields).
+ * @param {import('../generated/prisma/client').Program} row
+ */
+export function programToUserDto(row) {
+  const { createdByAdminId: _admin, ...publicFields } = programRowToJson(row);
+  return {
+    ...publicFields,
+    refereeBenefit: refereeBenefitFromProgram(row),
+  };
 }

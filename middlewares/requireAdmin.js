@@ -1,38 +1,64 @@
+import { parse as parseCookieHeader } from "cookie";
+import { adminAccessTokenCookieName } from "../config/adminAccessTokenCookie.js";
 import { UnauthorizedError, ForbiddenError } from "../errors/index.js";
-import {
-  secretsFromEnv,
-  verifyJwtHs256WithSecrets,
-} from "../utils/verifyJwtHs256WithSecrets.js";
+import jwt from "jsonwebtoken";
 
-const ADMIN_JWT_ENV_NAMES = ["ADMIN_JWT_SECRET", "ADMIN_JWT_SECRET_2", "ADMIN_JWT_SECRET_3"];
+/**
+ * Resolves admin JWT from `Authorization: Bearer` (preferred) or from the HttpOnly access-token cookie.
+ * @param {import("express").Request} req
+ * @returns {string | null}
+ */
+export function resolveAdminJwtFromRequest(req) {
+  const header = req.headers.authorization;
+  if (header && typeof header === "string" && header.startsWith("Bearer ")) {
+    const fromBearer = header.slice("Bearer ".length).trim();
+    if (fromBearer) {
+      return fromBearer;
+    }
+  }
+
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader || typeof cookieHeader !== "string") {
+    return null;
+  }
+
+  const cookies = parseCookieHeader(cookieHeader);
+  const name = adminAccessTokenCookieName();
+  const fromCookie = cookies[name];
+  if (fromCookie && typeof fromCookie === "string") {
+    const t = fromCookie.trim();
+    if (t) {
+      return t;
+    }
+  }
+  return null;
+}
 
 /**
  * Verifies HS256 Bearer JWT. Requires payload.role === "admin" and sub (actor id).
- * Accepts tokens signed with ADMIN_JWT_SECRET, ADMIN_JWT_SECRET_2, or ADMIN_JWT_SECRET_3 when set (demo / multi-issuer).
+ * Accepts `Authorization: Bearer <jwt>` or the HttpOnly cookie set by POST /api/v1/auth/admin-signin-referral.
  */
 export function requireAdmin(req, res, next) {
-  const primary = process.env.ADMIN_JWT_SECRET;
-  if (!primary || primary.trim() === "") {
+  const secret = process.env.ADMIN_JWT_SECRET;
+  if (!secret || secret.trim() === "") {
     return next(
       new Error(
         "ADMIN_JWT_SECRET is not configured. Set ADMIN_JWT_SECRET in environment variables."
       )
     );
   }
-  const secrets = secretsFromEnv(ADMIN_JWT_ENV_NAMES);
 
-  const header = req.headers.authorization;
-  if (!header || typeof header !== "string" || !header.startsWith("Bearer ")) {
-    return next(new UnauthorizedError("Missing or invalid Authorization header."));
-  }
-
-  const token = header.slice("Bearer ".length).trim();
+  const token = resolveAdminJwtFromRequest(req);
   if (!token) {
-    return next(new UnauthorizedError("Missing bearer token."));
+    return next(
+      new UnauthorizedError(
+        "Missing or invalid credentials. Send Authorization: Bearer <token> or a valid session cookie."
+      )
+    );
   }
 
   try {
-    const payload = verifyJwtHs256WithSecrets(token, secrets);
+    const payload = jwt.verify(token, secret.trim(), { algorithms: ["HS256"] });
     if (!payload || typeof payload !== "object") {
       return next(new UnauthorizedError("Invalid token payload."));
     }

@@ -38,7 +38,9 @@ function fakeProgram(overrides = {}) {
     rewardDurationMonths: 12,
     cookieDays: 30,
     attributionRule: "FIRST_TOUCH_CODE_OVERRIDE",
+    refereeBenefitType: "NONE",
     refereeBenefitValue: null,
+    refereeBenefitTrialDays: null,
     holdPeriodDays: 30,
     monthlyCap: null,
     lifetimeCap: null,
@@ -142,6 +144,41 @@ describe("POST /api/v1/admin/programs", () => {
     expect(res.statusCode).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
+
+  test("persists CREDIT referee benefit on create", async () => {
+    prisma.program.create.mockImplementation(async (args) => ({
+      ...fakeProgram({
+        id: IDS.createResult,
+        refereeBenefitType: "CREDIT",
+        refereeBenefitValue: { toString: () => "500" },
+      }),
+      ...args.data,
+      id: IDS.createResult,
+    }));
+
+    const res = await request(app)
+      .post("/api/v1/admin/programs")
+      .set("Authorization", `Bearer ${adminToken()}`)
+      .send({
+        ...sampleCreateBody,
+        refereeBenefitType: "CREDIT",
+        refereeBenefitValue: 500,
+      });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.body.data).toMatchObject({
+      refereeBenefitType: "CREDIT",
+      refereeBenefitValue: "500",
+    });
+    expect(prisma.program.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          refereeBenefitType: "CREDIT",
+          refereeBenefitValue: expect.objectContaining({ value: "500" }),
+        }),
+      })
+    );
+  });
 });
 
 describe("GET /api/v1/admin/programs/:id", () => {
@@ -211,6 +248,38 @@ describe("PATCH /api/v1/admin/programs/:id", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body.data.name).toBe("Renamed");
     expect(res.body.data.currentVersion).toBe(2);
+  });
+
+  test("updates referee benefit fields", async () => {
+    const existing = fakeProgram({ id: IDS.patchOk, currentVersion: 1 });
+    const updated = fakeProgram({
+      id: IDS.patchOk,
+      refereeBenefitType: "CREDIT",
+      refereeBenefitValue: { toString: () => "500" },
+      currentVersion: 2,
+    });
+    prisma.program.findUnique.mockResolvedValueOnce(existing);
+    prisma.program.findUnique.mockResolvedValueOnce(existing);
+    prisma.program.update.mockResolvedValueOnce(updated);
+
+    const res = await request(app)
+      .patch(`/api/v1/admin/programs/${IDS.patchOk}`)
+      .set("Authorization", `Bearer ${adminToken()}`)
+      .send({ refereeBenefitType: "CREDIT", refereeBenefitValue: 500 });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.data).toMatchObject({
+      refereeBenefitType: "CREDIT",
+      refereeBenefitValue: "500",
+    });
+    expect(prisma.program.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          refereeBenefitType: "CREDIT",
+          refereeBenefitValue: expect.objectContaining({ value: "500" }),
+        }),
+      })
+    );
   });
 });
 
